@@ -145,8 +145,6 @@ spriteanvil/
         ├── icon_gaggia_color.h     # 216×131 RGB565
         ├── icon_generic_color.h    # 240×240 RGB565
         ├── icon_rancilio_color.h
-        ├── icon_shared_color.h     # Mixed: 1-bit update icon + 240×240 color logo
-        └── icon_simple_color.h     # 1-bit icons + color images in one file
 ```
 
 ---
@@ -178,6 +176,16 @@ Once loaded, each font is shown in the **Fonts** tab with:
 - A **live text preview** — type any string to see it rendered pixel-accurately
 - A **colour picker** to change the glyph foreground colour
 - A **Subset & Export .h** panel — pick characters to keep (quick-set buttons or free-type), set the C identifier name, and download a minimal `.h` with only the needed glyphs
+
+### Creating & editing GFX fonts
+
+SpriteAnvil is a viewer/exporter — it does not create or edit font glyphs. For that, use one of these dedicated editors:
+
+| Editor | Notes |
+|--------|-------|
+| [Adafruit GFX Font Customiser](https://tchapi.github.io/Adafruit-GFX-Font-Customiser/) | Convert TTF/OTF to GFX font, adjust glyphs |
+| [gfxfont editor](https://gfxfont.netlify.app/) | Online glyph editor, import/export .h |
+| [gfx-fe](https://arnoson.github.io/gfx-fe/) | Feature-rich editor — **Chromium-based browser only** |
 
 ### Font subsetting
 
