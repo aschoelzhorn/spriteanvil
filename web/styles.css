@@ -1,6 +1,16 @@
 * { box-sizing: border-box; }
 body { background: #111; color: #eee; font-family: Arial, sans-serif; padding: 20px; margin: 0; }
-h1 { margin: 0 0 12px; font-size: 1.4em; color: #7bf; }
+h1 { margin: 0; font-size: 1.6em; color: #7bf; letter-spacing: .03em; }
+
+.site-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #2a2a2a;
+}
+.site-logo svg { display: block; flex-shrink: 0; }
+.site-title-group { display: flex; flex-direction: column; gap: 3px; }
+.site-tagline { margin: 0; font-size: 12px; color: #667; line-height: 1.4; }
 
 #dropzone {
     border: 2px dashed #555; padding: 18px; text-align: center;

@@ -1,4 +1,7 @@
-# SpriteAnvil
+<h1>
+  <img src="web/favicon.svg" width="48" height="36" alt="" style="vertical-align:middle; margin-right:10px;"/>
+  SpriteAnvil
+</h1>
 
 [![Deploy to GitHub Pages](https://github.com/aschoelzhorn/spriteanvil/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/aschoelzhorn/spriteanvil/actions/workflows/deploy-pages.yml)
 
@@ -6,6 +9,18 @@
 
 A browser-based tool for viewing, editing, and exporting pixel-art sprite assets for ESP32 LED panel projects.  
 No install required — use it instantly in the browser via GitHub Pages, or run it locally in Docker.
+
+---
+
+## Screenshots
+
+| Sprites & Zoom | Animation Strip |
+|:---:|:---:|
+| ![Sprites view](docs/screenshot-sprites.png) | ![Animation strip](docs/screenshot-animation.gif) |
+
+| Font Charmap & Preview |
+|:---:|
+| ![Fonts view](docs/screenshot-fonts.png) |
 
 ---
 

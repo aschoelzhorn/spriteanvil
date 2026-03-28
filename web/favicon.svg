@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48">
+  <!-- horn -->
+  <polygon points="4,16 24,16 24,26 4,32" fill="#4a9eff" opacity="0.85"/>
+  <!-- body -->
+  <rect x="16" y="22" width="40" height="18" rx="3" fill="#4a9eff"/>
+  <!-- face plate / highlight -->
+  <rect x="16" y="22" width="40" height="6" rx="3" fill="#7bc8ff" opacity="0.6"/>
+  <!-- base -->
+  <rect x="20" y="40" width="32" height="6" rx="2" fill="#2a6abf"/>
+  <!-- pixel grid accent -->
+  <rect x="28" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+  <rect x="34" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+  <rect x="40" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+  <rect x="28" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+  <rect x="34" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+  <rect x="40" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+</svg>

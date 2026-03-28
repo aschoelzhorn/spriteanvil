@@ -3,12 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <title>SpriteAnvil</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
-<h1>SpriteAnvil</h1>
+<header class="site-header">
+  <div class="site-logo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48" width="52" height="39" aria-hidden="true">
+      <!-- horn -->
+      <polygon points="4,16 24,16 24,26 4,32" fill="#4a9eff" opacity="0.85"/>
+      <!-- body -->
+      <rect x="16" y="22" width="40" height="18" rx="3" fill="#4a9eff"/>
+      <!-- face plate / highlight -->
+      <rect x="16" y="22" width="40" height="6" rx="3" fill="#7bc8ff" opacity="0.6"/>
+      <!-- base -->
+      <rect x="20" y="40" width="32" height="6" rx="2" fill="#2a6abf"/>
+      <!-- pixel grid accent -->
+      <rect x="28" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="34" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="40" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="28" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="34" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="40" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+    </svg>
+  </div>
+  <div class="site-title-group">
+    <h1>SpriteAnvil</h1>
+    <p class="site-tagline">Viewer &amp; exporter for RGB565 sprite assets and GFX fonts &mdash; for ESP32 LED panels</p>
+  </div>
+</header>
 
 <div id="dropzone">Drag &amp; Drop .h file here &mdash; or click to browse</div>
 <input type="file" id="fileInput" accept=".h" style="display:none">

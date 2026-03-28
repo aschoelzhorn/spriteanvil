@@ -1,5 +1,6 @@
 services:
   app:
     build: .
+    pull_policy: build
     ports:
       - '8080:80'
