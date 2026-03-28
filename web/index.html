@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SpriteAnvil</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+<h1>SpriteAnvil</h1>
+
+<div id="dropzone">Drag &amp; Drop .h file here &mdash; or click to browse</div>
+<input type="file" id="fileInput" accept=".h" style="display:none">
+
+<textarea id="code" placeholder="Paste .h file contents here"></textarea>
+
+<div class="toolbar">
+  <button onclick="doParse()">Parse</button>
+  <button onclick="exportZip()">Export ZIP</button>
+</div>
+
+<div class="controls">
+  <label>Zoom <input type="range" id="zoom" min="2" max="64" value="16"> <span id="zoomVal">16</span>px</label>
+  <label><input type="checkbox" id="grid" checked> Grid</label>
+  <label><input type="checkbox" id="stripMode" checked> Frames as strip</label>
+  <label class="bg-label">BG
+    <select id="bgMode">
+      <option value="checker">Checkerboard</option>
+      <option value="color">Solid color</option>
+    </select>
+    <input type="color" id="bgColor" value="#111111" title="Transparent pixel color">
+  </label>
+</div>
+
+<div id="sprites"></div>
+<div id="fonts"></div>
+
+<details open>
+  <summary>Validation</summary>
+  <pre id="validation">(no sprites loaded)</pre>
+</details>
+
+<script src="app.js"></script>
+</body>
+</html>

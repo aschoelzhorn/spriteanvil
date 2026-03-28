@@ -1,0 +1,631 @@
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let sprites = [];
+let sizes = {};
+let constants = {};
+let sourceFiles = [];
+let fonts = [];
+const animState = new Map(); // baseName → intervalId
+
+// ─── Parse entry points ────────────────────────────────────────────────────────
+function doParse() {
+    const code = document.getElementById('code').value;
+    if (code.trim()) parseCode(code, null, false);
+}
+
+function parseCode(code, filename, merge) {
+    if (!merge) { sprites = []; sizes = {}; constants = {}; sourceFiles = []; fonts = []; }
+    if (filename && !sourceFiles.find(s => s.name === filename))
+        sourceFiles.push({ name: filename, content: code });
+
+    // 1. Scalar constants: const unsigned short/uint16_t NAME = 0xHHHH
+    for (const m of code.matchAll(
+        /const\s+(?:unsigned\s+short|uint16_t)\s+(\w+)\s*=\s*(0x[0-9A-Fa-f]+|\d+)/g
+    )) constants[m[1]] = parseInt(m[2], 16);
+
+    // 2. SIZE arrays – case-insensitive suffix (_SIZE or _size), any bracket content
+    for (const m of code.matchAll(
+        /const\s+byte\s+(\w+)_size\s*\[\d+\]\s*=\s*\{(\d+)\s*,\s*(\d+)\}/gi
+    )) sizes[m[1].toLowerCase()] = { w: +m[2], h: +m[3], origDecl: m[0].trim() };
+
+    // 3. 2-D frame arrays  const uint16_t NAME [][N] PROGMEM = { {…},{…} };
+    const handled2D = new Set();
+    const re2D = /const\s+(?:unsigned\s+short|uint16_t)\s+(\w+)\s*\[\s*\]\s*\[(\d+)\][^;=]*=\s*\{/g;
+    let m2D;
+    while ((m2D = re2D.exec(code)) !== null) {
+        const name = m2D[1];
+        const framePixels = +m2D[2];
+        const body = extractBracedContent(code, m2D.index + m2D[0].length - 1);
+        if (!body) continue;
+        const se = sizes[name.toLowerCase()];
+        const fw = se ? se.w : Math.round(Math.sqrt(framePixels));
+        const fh = se ? se.h : Math.round(framePixels / Math.max(1, fw));
+        [...body.matchAll(/\{([^}]*)\}/g)].forEach((fm, i) => {
+            sprites.push({
+                name: `${name}_frame${i}`, baseName: name, frameIndex: i,
+                data: parseValues(fm[1].replace(/\/\/.*$/gm, '')),
+                width: fw, height: fh, isFrame: true,
+                sizeExplicit: !!se, origType: 'uint16_t', useProgmem: true,
+                origSizeDecl: se ? se.origDecl : null
+            });
+        });
+        handled2D.add(name);
+    }
+
+    // 4. 1-D arrays  const unsigned short/uint16_t NAME[N] or NAME[] PROGMEM? = {…}
+    //    [^=\[] after ] blocks matching 2-D [][N] patterns
+    const re1D = /const\s+((unsigned\s+short)|(uint16_t))\s+(\w+)\s*\[[\s\d]*\]([^=\[]*)=\s*\{([\s\S]*?)\}/g;
+    for (const m of code.matchAll(re1D)) {
+        const origType = m[2] ? 'unsigned short' : 'uint16_t';
+        const name = m[4];
+        if (/^.+_size$/i.test(name)) continue;
+        if (handled2D.has(name)) continue;
+        const raw = m[6].replace(/\/\/.*$/gm, '');
+        const data = parseValues(raw);
+        if (!data.length) continue;
+        const se = sizes[name.toLowerCase()];
+        const w = se ? se.w : Math.round(Math.sqrt(data.length));
+        const h = se ? se.h : Math.round(data.length / Math.max(1, w));
+        sprites.push({
+            name, data, width: w, height: h, isFrame: false,
+            sizeExplicit: !!se, origType, useProgmem: /\bPROGMEM\b/.test(m[5]),
+            origSizeDecl: se ? se.origDecl : null
+        });
+    }
+
+    // ─── 5. GFX font bitmaps: const uint8_t NAMEBitmaps[] PROGMEM = { … };
+    const fntBitmaps = {};
+    for (const m of code.matchAll(
+        /const\s+uint8_t\s+(\w+)Bitmaps\s*\[\s*\]\s*PROGMEM\s*=\s*\{([\s\S]*?)\};/g
+    )) fntBitmaps[m[1]] = m[2].split(',').map(v => Number.parseInt(v.trim(), 16)).filter(n => !Number.isNaN(n));
+
+    // ─── 6. GFX glyph tables: const GFXglyph NAMEGlyphs[] PROGMEM = { {…}, … };
+    const fntGlyphs = {};
+    for (const m of code.matchAll(
+        /const\s+GFXglyph\s+(\w+)Glyphs\s*\[\s*\]\s*PROGMEM\s*=\s*\{([\s\S]*?)\};/g
+    )) {
+        const glyphs = [];
+        for (const gm of m[2].matchAll(
+            /\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\}/g
+        )) glyphs.push({ bitmapOffset: +gm[1], width: +gm[2], height: +gm[3],
+                         xAdvance: +gm[4], xOffset: +gm[5], yOffset: +gm[6] });
+        fntGlyphs[m[1]] = glyphs;
+    }
+
+    // ─── 7. GFX font struct: const GFXfont NAME PROGMEM = { ptr, ptr, first, last, yAdv };
+    for (const m of code.matchAll(
+        /const\s+GFXfont\s+(\w+)\s+PROGMEM\s*=\s*\{[^,]*,\s*[^,]*,\s*(0x[0-9A-Fa-f]+|\d+)\s*,\s*(0x[0-9A-Fa-f]+|\d+)\s*,\s*(\d+)/g
+    )) {
+        const name = m[1];
+        const first    = Number.parseInt(m[2], 16);
+        const last     = Number.parseInt(m[3], 16);
+        const yAdvance = +m[4];
+        if (!fntBitmaps[name] || !fntGlyphs[name]) continue;
+        if (fonts.some(f => f.name === name)) continue;
+        fonts.push({ name, first, last, yAdvance,
+                     bitmaps: fntBitmaps[name], glyphs: fntGlyphs[name],
+                     previewText: 'Hello 123', fgColor: '#ffffff' });
+    }
+
+    renderSprites();
+    validateAll();
+}
+
+function extractBracedContent(str, openPos) {
+    let depth = 0;
+    for (let i = openPos; i < str.length; i++) {
+        if (str[i] === '{') depth++;
+        else if (str[i] === '}' && --depth === 0) return str.slice(openPos + 1, i);
+    }
+    return null;
+}
+
+function parseValues(raw) {
+    return raw.split(',').map(v => v.trim()).filter(Boolean).map(v => {
+        if (v === 'TRANSPARENT') return 0xFEFE;
+        if (constants[v] !== undefined) return constants[v];
+        if (/^0[xX]/.test(v)) return parseInt(v, 16);
+        if (/^\d+$/.test(v)) return parseInt(v, 10);
+        return 0;
+    });
+}
+
+// ─── Rendering ────────────────────────────────────────────────────────────────
+function getZoom()  { return +document.getElementById('zoom').value; }
+function getGrid()  { return document.getElementById('grid').checked; }
+function getStrip() { return document.getElementById('stripMode').checked; }
+
+function renderSprites() {
+    document.getElementById('zoomVal').textContent = getZoom();
+    const z = getZoom(), grid = getGrid(), useStrip = getStrip();
+    const container = document.getElementById('sprites');
+    stopAllAnims();
+    container.innerHTML = '';
+
+    const frameGroups = {}, singles = [];
+    sprites.forEach(s => s.isFrame
+        ? ((frameGroups[s.baseName] = frameGroups[s.baseName] || []).push(s))
+        : singles.push(s));
+
+    singles.forEach(s => {
+        const card = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
+        card.appendChild(drawSprite(s, z, grid));
+        container.appendChild(card);
+    });
+
+    Object.entries(frameGroups).forEach(([base, frames]) => {
+        const { width: w, height: h } = frames[0];
+        const card = mkCard(
+            `${base} <span class="dim">${frames.length} frames &times; ${w}&times;${h}</span>`);
+
+        // ── animated preview ─────────────────────────────────────────────────
+        const animWrap = document.createElement('div');
+        animWrap.className = 'anim-wrap';
+
+        const animCanvas = document.createElement('canvas');
+        animCanvas.width  = w * z;
+        animCanvas.height = h * z;
+        animWrap.appendChild(animCanvas);
+
+        const animCtrl = document.createElement('div');
+        animCtrl.className = 'anim-controls';
+
+        const playBtn = document.createElement('button');
+        playBtn.className = 'anim-btn';
+        playBtn.textContent = '⏸';
+        animCtrl.appendChild(playBtn);
+
+        const fpsLabel = document.createElement('label');
+        fpsLabel.className = 'anim-fps-label';
+        fpsLabel.appendChild(document.createTextNode('FPS '));
+        const fpsInput = document.createElement('input');
+        fpsInput.type = 'range'; fpsInput.min = 1; fpsInput.max = 30; fpsInput.value = 6;
+        const fpsVal = document.createElement('span');
+        fpsVal.textContent = '6';
+        fpsInput.addEventListener('input', () => { fpsVal.textContent = fpsInput.value; });
+        fpsLabel.appendChild(fpsInput);
+        fpsLabel.appendChild(fpsVal);
+        animCtrl.appendChild(fpsLabel);
+
+        animWrap.appendChild(animCtrl);
+        card.appendChild(animWrap);
+        setupAnim(base, frames, animCanvas, fpsInput, playBtn);
+
+        // ── strip or individual frames ───────────────────────────────────────
+        if (useStrip) {
+            card.appendChild(drawStrip(frames, z, grid));
+        } else {
+            const row = document.createElement('div');
+            row.className = 'frames-row';
+            frames.forEach((f, i) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'frame-wrap';
+                wrap.innerHTML = `<div class="frame-num">Frame ${i}</div>`;
+                wrap.appendChild(drawSprite(f, z, grid));
+                row.appendChild(wrap);
+            });
+            card.appendChild(row);
+        }
+        container.appendChild(card);
+    });
+    renderFonts();
+}
+
+function mkCard(labelHtml) {
+    const card = document.createElement('div');
+    card.className = 'sprite-card';
+    const lbl = document.createElement('div');
+    lbl.className = 'sprite-label';
+    lbl.innerHTML = labelHtml;
+    card.appendChild(lbl);
+    return card;
+}
+
+function drawBg(ctx, w, h, z, offX = 0) {
+    if (document.getElementById('bgMode').value === 'color') {
+        ctx.fillStyle = document.getElementById('bgColor').value;
+        ctx.fillRect(offX, 0, w * z, h * z);
+    } else {
+        const sz = Math.max(8, z);
+        for (let py = 0; py < h * z; py += sz)
+            for (let px = 0; px < w * z; px += sz) {
+                ctx.fillStyle = ((Math.floor((offX + px) / sz) + Math.floor(py / sz)) % 2 === 0)
+                    ? '#555' : '#888';
+                ctx.fillRect(offX + px, py, sz, sz);
+            }
+    }
+}
+
+function pixelDraw(ctx, data, w, h, z, offX = 0) {
+    for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+            const v = data[y * w + x];
+            if (v === 0xFEFE || v === undefined) continue;
+            ctx.fillStyle = `rgb(${((v >> 11) & 31) << 3},${((v >> 5) & 63) << 2},${(v & 31) << 3})`;
+            ctx.fillRect(offX + x * z, y * z, z, z);
+        }
+}
+
+function gridDraw(ctx, w, h, z, offX = 0) {
+    if (z < 4) return;
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= w; x++) {
+        ctx.beginPath(); ctx.moveTo(offX + x * z, 0); ctx.lineTo(offX + x * z, h * z); ctx.stroke();
+    }
+    for (let y = 0; y <= h; y++) {
+        ctx.beginPath(); ctx.moveTo(offX, y * z); ctx.lineTo(offX + w * z, y * z); ctx.stroke();
+    }
+}
+
+function drawSprite(s, z, grid) {
+    const canvas = document.createElement('canvas');
+    canvas.width = s.width * z;  canvas.height = s.height * z;
+    const ctx = canvas.getContext('2d');
+    drawBg(ctx, s.width, s.height, z);
+    pixelDraw(ctx, s.data, s.width, s.height, z);
+    if (grid) gridDraw(ctx, s.width, s.height, z);
+    return canvas;
+}
+
+function drawStrip(frames, z, grid) {
+    const { width: w, height: h } = frames[0];
+    const gap = 4, labelH = 16;
+    const canvas = document.createElement('canvas');
+    canvas.width  = frames.length * w * z + (frames.length - 1) * gap;
+    canvas.height = h * z + labelH;
+    const ctx = canvas.getContext('2d');
+    frames.forEach((frame, i) => {
+        const offX = i * (w * z + gap);
+        drawBg(ctx, w, h, z, offX);
+        pixelDraw(ctx, frame.data, w, h, z, offX);
+        if (grid) gridDraw(ctx, w, h, z, offX);
+        ctx.fillStyle = '#aaa';
+        ctx.font = '10px monospace';
+        ctx.fillText(`#${i}`, offX + 2, h * z + 12);
+    });
+    return canvas;
+}
+
+// ─── Animation ────────────────────────────────────────────────────────────────
+function stopAllAnims() {
+    for (const id of animState.values()) clearInterval(id);
+    animState.clear();
+}
+
+function setupAnim(baseName, frames, canvas, fpsEl, playBtn) {
+    let frameIdx = 0;
+    let playing  = true;
+    let timerId  = null;
+
+    function drawAnimFrame() {
+        const z = getZoom(), grid = getGrid();
+        const f = frames[frameIdx];
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBg(ctx, f.width, f.height, z);
+        pixelDraw(ctx, f.data, f.width, f.height, z);
+        if (grid) gridDraw(ctx, f.width, f.height, z);
+    }
+
+    function schedule() {
+        timerId = setInterval(() => {
+            frameIdx = (frameIdx + 1) % frames.length;
+            drawAnimFrame();
+        }, 1000 / Math.max(1, +fpsEl.value));
+        animState.set(baseName, timerId);
+    }
+
+    drawAnimFrame(); // render frame 0 immediately
+    schedule();
+
+    playBtn.addEventListener('click', () => {
+        playing = !playing;
+        playBtn.textContent = playing ? '⏸' : '▶';
+        if (playing) { schedule(); } else { clearInterval(timerId); }
+    });
+
+    fpsEl.addEventListener('input', () => {
+        if (playing) { clearInterval(timerId); schedule(); }
+    });
+}
+
+document.getElementById('zoom').addEventListener('input', renderSprites);
+document.getElementById('grid').addEventListener('change', renderSprites);
+document.getElementById('stripMode').addEventListener('change', renderSprites);
+document.getElementById('bgMode').addEventListener('change', () => {
+    document.getElementById('bgColor').style.display =
+        document.getElementById('bgMode').value === 'color' ? '' : 'none';
+    renderSprites();
+});
+document.getElementById('bgColor').addEventListener('input', renderSprites);
+
+// hide colour picker on initial load (default = checker)
+document.getElementById('bgColor').style.display = 'none';
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+function validateAll() {
+    const lines = [], reported = new Set();
+    sprites.forEach(s => {
+        if (s.isFrame) {
+            if (reported.has(s.baseName)) return;
+            reported.add(s.baseName);
+            const grp = sprites.filter(x => x.baseName === s.baseName);
+            const ok  = grp.every(f => f.width * f.height === f.data.length);
+            const w   = s.sizeExplicit ? '' : '  ⚠️ no SIZE defined';
+            lines.push(`${ok ? '✅' : '❌'} ${s.baseName} (${grp.length} frames · ${s.width}×${s.height})${w}`);
+        } else {
+            const exp = s.width * s.height, ok = exp === s.data.length;
+            const w   = s.sizeExplicit ? '' : '  ⚠️ no SIZE defined';
+            lines.push(`${ok ? '✅' : '❌'} ${s.name} (${s.width}×${s.height})` +
+                       `${ok ? '' : `: ${s.data.length}/${exp} px`}${w}`);
+        }
+    });
+    document.getElementById('validation').textContent =
+        lines.length ? lines.join('\n') : '(no sprites loaded)';
+}
+
+// ─── Font rendering ───────────────────────────────────────────────────────────
+function renderFonts() {
+    const container = document.getElementById('fonts');
+    container.innerHTML = '';
+    if (!fonts.length) return;
+    const z = getZoom();
+    const hdr = document.createElement('h2');
+    hdr.className = 'section-header';
+    hdr.textContent = 'Fonts';
+    container.appendChild(hdr);
+    fonts.forEach(font => container.appendChild(mkFontUI(font, z)));
+}
+
+// 1-bit glyph bitmap: bitmapOffset is a BYTE offset; bits are packed MSB-first
+function glyphBit(font, bitmapOffset, bitIndex) {
+    const globalBit = bitmapOffset * 8 + bitIndex;
+    const byte = font.bitmaps[Math.floor(globalBit / 8)];
+    return (byte !== undefined) ? (byte >> (7 - (globalBit % 8))) & 1 : 0;
+}
+
+function drawGlyph(font, glyphIdx, z, fgColor) {
+    const g = font.glyphs[glyphIdx];
+    if (!g || g.width === 0 || g.height === 0) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width  = g.width  * z;
+    canvas.height = g.height * z;
+    const ctx = canvas.getContext('2d');
+    drawBg(ctx, g.width, g.height, z);
+    ctx.fillStyle = fgColor;
+    for (let row = 0; row < g.height; row++)
+        for (let col = 0; col < g.width; col++)
+            if (glyphBit(font, g.bitmapOffset, row * g.width + col))
+                ctx.fillRect(col * z, row * z, z, z);
+    if (getGrid()) gridDraw(ctx, g.width, g.height, z);
+    return canvas;
+}
+
+function renderFontPreview(font, text, z, fgColor, canvas) {
+    const baseline = font.yAdvance - 1; // unscaled pixels; yOffset negative = above baseline
+    let totalW = 0;
+    for (const ch of text) {
+        const code = ch.codePointAt(0);
+        if (code < font.first || code > font.last) { totalW += font.yAdvance; continue; }
+        totalW += font.glyphs[code - font.first].xAdvance;
+    }
+    canvas.width  = Math.max(1, totalW * z);
+    canvas.height = Math.max(1, font.yAdvance * z);
+    const ctx = canvas.getContext('2d');
+    drawBg(ctx, totalW, font.yAdvance, z);
+    ctx.fillStyle = fgColor;
+    let curX = 0;
+    for (const ch of text) {
+        const code = ch.codePointAt(0);
+        if (code < font.first || code > font.last) { curX += font.yAdvance; continue; }
+        const g = font.glyphs[code - font.first];
+        if (g.width > 0 && g.height > 0) {
+            const dy = (baseline + g.yOffset) * z;
+            const dx = (curX    + g.xOffset ) * z;
+            for (let row = 0; row < g.height; row++)
+                for (let col = 0; col < g.width; col++)
+                    if (glyphBit(font, g.bitmapOffset, row * g.width + col))
+                        ctx.fillRect(dx + col * z, dy + row * z, z, z);
+        }
+        curX += g.xAdvance;
+    }
+}
+
+function mkFontUI(font, z) {
+    const cmZ  = Math.max(2, Math.min(6, z)); // charmap uses capped zoom
+    const card = document.createElement('div');
+    card.className = 'font-card';
+
+    // header
+    const activeCount = font.glyphs.filter(g => g.width > 0 || g.xAdvance > 0).length;
+    const hdr = document.createElement('div');
+    hdr.className = 'sprite-label';
+    hdr.innerHTML = `${font.name} <span class="dim">${activeCount} glyphs &middot; ` +
+        `0x${font.first.toString(16).toUpperCase()}&ndash;` +
+        `0x${font.last.toString(16).toUpperCase()} &middot; yAdv&nbsp;${font.yAdvance}</span>`;
+    card.appendChild(hdr);
+
+    // preview controls row
+    const previewRow = document.createElement('div');
+    previewRow.className = 'font-preview-row';
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color'; colorInput.value = font.fgColor; colorInput.title = 'Glyph colour';
+    previewRow.appendChild(colorInput);
+    const textInput = document.createElement('input');
+    textInput.type = 'text'; textInput.className = 'font-text-input';
+    textInput.placeholder = 'Type preview text\u2026'; textInput.value = font.previewText;
+    previewRow.appendChild(textInput);
+    card.appendChild(previewRow);
+
+    // preview canvas (rendered text)
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.className = 'font-preview-canvas';
+    card.appendChild(previewCanvas);
+
+    // character map grid
+    const mapDiv = document.createElement('div');
+    mapDiv.className = 'font-charmap';
+    for (let i = 0; i < font.glyphs.length; i++) {
+        const g    = font.glyphs[i];
+        const code = font.first + i;
+        // skip truly undefined glyphs (zero everything)
+        if (g.width === 0 && g.height === 0 && g.xAdvance === 0) continue;
+        const cell = document.createElement('div');
+        cell.className = 'font-char-cell';
+        cell.title = `U+${code.toString(16).toUpperCase().padStart(2, '0')} '${
+            code >= 33 ? String.fromCodePoint(code) : ' '}'`;
+        if (g.width > 0 && g.height > 0) {
+            cell.appendChild(drawGlyph(font, i, cmZ, font.fgColor));
+        } else {
+            const ph = document.createElement('div');
+            ph.className = 'font-char-empty';
+            ph.style.width  = `${Math.max(4, g.xAdvance) * cmZ}px`;
+            ph.style.height = `${font.yAdvance * cmZ}px`;
+            cell.appendChild(ph);
+        }
+        const lbl = document.createElement('div');
+        lbl.className = 'font-char-label';
+        lbl.textContent = code >= 33 ? String.fromCodePoint(code) : `·`;
+        cell.appendChild(lbl);
+        mapDiv.appendChild(cell);
+    }
+    card.appendChild(mapDiv);
+
+    // event handlers – store values on font object so re-renders restore them
+    const updatePreview = () => {
+        font.previewText = textInput.value;
+        renderFontPreview(font, font.previewText, z, font.fgColor, previewCanvas);
+    };
+    textInput.addEventListener('input', updatePreview);
+    colorInput.addEventListener('input', () => {
+        font.fgColor = colorInput.value;
+        mapDiv.querySelectorAll('.font-char-cell').forEach((cell, i) => {
+            // find the glyph index this cell corresponds to (skipping all-zero entries)
+            const gc = cell.querySelector('canvas');
+            if (!gc) return;
+            const cellIdx = [...mapDiv.children].indexOf(cell);
+            // map visible cell index back to glyph index
+            let visIdx = 0;
+            for (let gi = 0; gi < font.glyphs.length; gi++) {
+                const gg = font.glyphs[gi];
+                if (gg.width === 0 && gg.height === 0 && gg.xAdvance === 0) continue;
+                if (visIdx === cellIdx) {
+                    const ng = drawGlyph(font, gi, cmZ, font.fgColor);
+                    if (ng) cell.replaceChild(ng, gc);
+                    break;
+                }
+                visIdx++;
+            }
+        });
+        renderFontPreview(font, font.previewText, z, font.fgColor, previewCanvas);
+    });
+    updatePreview();
+    return card;
+}
+
+// ─── Drag & Drop + file browse ────────────────────────────────────────────────
+const dz = document.getElementById('dropzone');
+dz.ondragover  = e => { e.preventDefault(); dz.classList.add('hover'); };
+dz.ondragleave = () => dz.classList.remove('hover');
+dz.ondrop = e => {
+    e.preventDefault(); dz.classList.remove('hover');
+    handleFile(e.dataTransfer.files[0]);
+};
+dz.onclick = () => document.getElementById('fileInput').click();
+
+document.getElementById('fileInput').addEventListener('change', e => {
+    handleFile(e.target.files[0]);
+    e.target.value = '';
+});
+
+function handleFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        const code = reader.result;
+        document.getElementById('code').value = code;
+        if (sprites.length > 0) {
+            const ok = confirm(
+                `${sprites.length} sprite(s) already loaded.\n\n` +
+                `OK     → Add sprites from "${file.name}"\n` +
+                `Cancel → Replace everything`
+            );
+            parseCode(code, file.name, ok);
+        } else {
+            parseCode(code, file.name, false);
+        }
+    };
+    reader.readAsText(file);
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+async function exportZip() {
+    if (!sprites.length) { alert('No sprites loaded.'); return; }
+    const zip = new JSZip();
+
+    // Include original source files unchanged
+    sourceFiles.forEach(sf => zip.file(sf.name, sf.content));
+
+    const exported = new Set();
+    for (const s of sprites) {
+        const key = s.isFrame ? s.baseName : s.name;
+        if (exported.has(key)) continue;
+        exported.add(key);
+
+        let h = '#pragma once\n\n';
+        if (s.isFrame) {
+            const frames = sprites.filter(x => x.baseName === key);
+            const fp = frames[0].width * frames[0].height;
+            h += `const ${frames[0].origType} ${key}[][${fp}] PROGMEM = {\n`;
+            frames.forEach((f, i) => {
+                h += `    { // frame ${i} (${f.width}x${f.height})\n        `;
+                h += fmtValues(f.data, 8);
+                h += `\n    }${i < frames.length - 1 ? ',' : ''}\n`;
+            });
+            h += `};\n`;
+        } else {
+            const decl = s.useProgmem
+                ? `const ${s.origType} ${s.name}[] PROGMEM`
+                : `const ${s.origType} ${s.name}[${s.data.length}]`;
+            h += `${decl} = {\n    ${fmtValues(s.data, 16)}\n};\n`;
+        }
+        // SIZE companion (original decl if available, else generate one)
+        const sd = s.origSizeDecl || `const byte ${key}_size[2] = {${s.width}, ${s.height}};`;
+        h += `\n${sd}\n`;
+
+        zip.file(`sprites/${key.toLowerCase()}.h`, h);
+
+        // PNG at current zoom (no grid)
+        const canvas = s.isFrame
+            ? drawStrip(sprites.filter(x => x.baseName === key), getZoom(), false)
+            : drawSprite(s, getZoom(), false);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        zip.file(`sprites/${key.toLowerCase()}.png`, blob);
+    }
+
+    // Root assets.h
+    let main = '#pragma once\n\n';
+    if (sourceFiles.length) {
+        main += '// Original source files\n';
+        sourceFiles.forEach(sf => { main += `#include "${sf.name}"\n`; });
+    } else {
+        main += '// Split sprite headers\n';
+        exported.forEach(k => { main += `#include "sprites/${k.toLowerCase()}.h"\n`; });
+    }
+    zip.file('assets.h', main);
+
+    const out = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(out);
+    a.download = 'assets.zip';
+    a.click();
+}
+
+function fmtValues(data, perLine) {
+    const vals = data.map(v =>
+        v === 0xFEFE ? '0xFEFE' : '0x' + v.toString(16).toUpperCase().padStart(4, '0'));
+    const chunks = [];
+    for (let i = 0; i < vals.length; i += perLine) chunks.push(vals.slice(i, i + perLine).join(', '));
+    return chunks.join(',\n    ');
+}
