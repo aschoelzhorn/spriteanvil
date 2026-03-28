@@ -30,6 +30,7 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 |                   |                                                                                                     |
 |-------------------|-----------------------------------------------------------------------------------------------------|
 | **Parse**         | Drag & drop or paste `.h` files (select multiple, or drop a whole folder) containing `uint16_t` / `unsigned short` / `unsigned char` C arrays |
+| **Tabs**          | **Sprites** and **Fonts** tabs keep the two workflows separate; controls and Export ZIP adapt per tab |
 | **Render**        | RGB565 → RGB888 canvas preview with zoom (1–64 px) and optional pixel grid                          |
 | **Pixel inspector** | Hover over any sprite canvas to see pixel coordinates, RGB565 hex value, and decoded RGB colour  |
 | **1-bit bitmaps** | Monochrome `unsigned char` XBM/PROGMEM bitmaps rendered with per-sprite **FG** and **BG** color pickers (with transparent-BG toggle) |
@@ -170,9 +171,10 @@ const GFXfont MyFont PROGMEM = {
 };
 ```
 
-Once loaded, each font is shown in a **Fonts** section below the sprites with:
+Once loaded, each font is shown in the **Fonts** tab with:
 
-- A **glyph charmap** — every character in the font rendered at the current zoom
+- A **font metrics row** — Leading (yAdvance), Baseline offset, and cell height
+- A **glyph charmap** — every character baseline-aligned in uniform cells so digits and symbols sit on the same optical baseline
 - A **live text preview** — type any string to see it rendered pixel-accurately
 - A **colour picker** to change the glyph foreground colour
 - A **Subset & Export .h** panel — pick characters to keep (quick-set buttons or free-type), set the C identifier name, and download a minimal `.h` with only the needed glyphs
@@ -211,12 +213,16 @@ Split `.h` files preserve the original declaration style — `uint16_t` vs `unsi
 | Control                      | Description                                                 |
 |------------------------------|-------------------------------------------------------------|
 | Drag & drop / click dropzone | Load one or more `.h` files, or drop an entire folder — all `.h` files are collected recursively |
+| **Sprites** / **Fonts** tab  | Switch between the two views; tab labels show loaded counts |
+| *Sprites tab* drop prompt    | Prompted once — **Add** or **Replace** sprites; fonts in the same file always auto-replace same-named |
+| *Fonts tab* drop             | Same-named fonts auto-replaced; new fonts added; any sprites in the file are added silently |
 | Paste + **Parse** button     | Parse code pasted into the text area                        |
-| **Zoom** slider              | 1–64 px per pixel                                           |
+| **Zoom** slider *(Sprites)*  | 1–64 px per pixel — independent from font zoom              |
+| **Zoom** slider *(Fonts)*    | 1–64 px per pixel — independent from sprite zoom            |
 | **Grid** checkbox            | Pixel grid overlay (auto-hidden below 4 px zoom)            |
 | **Frames as strip** checkbox | Show animation frames in one canvas or individually         |
-| **BG** selector              | Checkerboard or solid colour for transparent pixels         |
-| Colour picker                | Transparent pixel fill colour (visible in Solid color mode) |
+| **BG** selector *(Sprites)*  | Checkerboard or solid colour for transparent sprite pixels  |
+| **BG** selector *(Fonts)*    | Checkerboard or solid colour for font preview canvases      |
 | ▶ / **⏸** button             | Play / pause animation per sprite group                     |
 | **FPS** slider               | Animation speed 1–30 fps per sprite group                   |
 | **Export ZIP**               | Download everything as a ZIP archive                        |

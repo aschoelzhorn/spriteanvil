@@ -5,16 +5,40 @@ let sizes = {};
 let constants = {};
 let sourceFiles = [];
 let fonts = [];
+let currentTab = 'sprites';
 const animState = new Map(); // baseName → intervalId
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(name) {
+    currentTab = name;
+    document.getElementById('tab-sprites').style.display    = name === 'sprites' ? '' : 'none';
+    document.getElementById('tab-fonts').style.display      = name === 'fonts'   ? '' : 'none';
+    document.getElementById('tab-btn-sprites').classList.toggle('active', name === 'sprites');
+    document.getElementById('tab-btn-fonts').classList.toggle('active',   name === 'fonts');
+    document.getElementById('btn-export-zip').style.display = name === 'sprites' ? '' : 'none';
+}
+
+function updateTabCounts() {
+    const groups = new Set(sprites.map(s => s.isFrame ? s.baseName : s.name));
+    const sc = groups.size, fc = fonts.length;
+    document.getElementById('tab-btn-sprites').textContent = 'Sprites' + (sc ? ` (${sc})` : '');
+    document.getElementById('tab-btn-fonts').textContent   = 'Fonts'   + (fc ? ` (${fc})` : '');
+}
 
 // ─── Parse entry points ────────────────────────────────────────────────────────
 function doParse() {
     const code = document.getElementById('code').value;
-    if (code.trim()) parseCode(code, null, false);
+    if (!code.trim()) return;
+    parseCode(code, null, false);
+    if (currentTab === 'sprites' && sprites.length === 0 && fonts.length > 0)
+        switchTab('fonts');
+    else if (currentTab === 'fonts' && fonts.length === 0 && sprites.length > 0)
+        switchTab('sprites');
 }
 
 function parseCode(code, filename, merge) {
-    if (!merge) { sprites = []; sizes = {}; constants = {}; sourceFiles = []; fonts = []; }
+    if (!merge) { sprites = []; sizes = {}; constants = {}; sourceFiles = []; }
+    // fonts are never bulk-cleared; same-named fonts are replaced by step 7
     if (filename && !sourceFiles.find(s => s.name === filename))
         sourceFiles.push({ name: filename, content: code });
 
@@ -176,14 +200,17 @@ function parseCode(code, filename, merge) {
         const last     = Number.parseInt(m[3], 16);
         const yAdvance = +m[4];
         if (!fntBitmaps[name] || !fntGlyphs[name]) continue;
-        if (fonts.some(f => f.name === name)) continue;
-        fonts.push({ name, first, last, yAdvance,
+        const fontObj = { name, first, last, yAdvance,
                      bitmaps: fntBitmaps[name], glyphs: fntGlyphs[name],
-                     previewText: 'Hello 123', fgColor: '#ffffff' });
+                     previewText: 'Hello 123', fgColor: '#ffffff' };
+        const existingIdx = fonts.findIndex(f => f.name === name);
+        if (existingIdx >= 0) fonts[existingIdx] = fontObj; // auto-replace same-named
+        else fonts.push(fontObj);
     }
 
     renderSprites();
     validateAll();
+    updateTabCounts();
 }
 
 function extractBracedContent(str, openPos) {
@@ -206,9 +233,19 @@ function parseValues(raw) {
 }
 
 // ─── Rendering ────────────────────────────────────────────────────────────────
-function getZoom()  { return +document.getElementById('zoom').value; }
-function getGrid()  { return document.getElementById('grid').checked; }
-function getStrip() { return document.getElementById('stripMode').checked; }
+function getSpriteZoom() { return +document.getElementById('zoom-sprites').value; }
+function getFontZoom()   { return +document.getElementById('zoom-fonts').value; }
+function getZoom()       { return currentTab === 'fonts' ? getFontZoom() : getSpriteZoom(); }
+function getGrid()       { return document.getElementById('grid').checked; }
+function getStrip()      { return document.getElementById('stripMode').checked; }
+function getSpriteBg() {
+    return { mode: document.getElementById('bgMode-sprites').value,
+             color: document.getElementById('bgColor-sprites').value };
+}
+function getFontBg() {
+    return { mode: document.getElementById('bgMode-fonts').value,
+             color: document.getElementById('bgColor-fonts').value };
+}
 
 // ─── Mono (1-bit) color helpers ──────────────────────────────────────────────────
 function hexToRgb565(hex) {
@@ -260,10 +297,10 @@ function mkMonoPickers(s, canvas) {
 
     function refresh() {
         recolorMono(s);
-        const z = getZoom(), g = getGrid();
+        const z = getSpriteZoom(), g = getGrid();
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawBg(ctx, s.width, s.height, z);
+        drawBg(ctx, s.width, s.height, z, 0, getSpriteBg());
         pixelDraw(ctx, s.data, s.width, s.height, z);
         if (g) gridDraw(ctx, s.width, s.height, z);
     }
@@ -279,8 +316,8 @@ function mkMonoPickers(s, canvas) {
 }
 
 function renderSprites() {
-    document.getElementById('zoomVal').textContent = getZoom();
-    const z = getZoom(), grid = getGrid(), useStrip = getStrip();
+    document.getElementById('zoomVal-sprites').textContent = getSpriteZoom();
+    const z = getSpriteZoom(), grid = getGrid(), useStrip = getStrip();
     const container = document.getElementById('sprites');
     stopAllAnims();
     container.innerHTML = '';
@@ -359,6 +396,7 @@ function renderSprites() {
         container.appendChild(card);
     });
     renderFonts();
+    updateTabCounts();
 }
 
 function mkCard(labelHtml) {
@@ -372,7 +410,7 @@ function mkCard(labelHtml) {
     lbl.appendChild(textSpan);
     const btns = document.createElement('div');
     btns.className = 'save-png-btns';
-    const z = getZoom();
+    const z = getSpriteZoom();
     const zoomBtn = document.createElement('button');
     zoomBtn.className = 'save-png-btn';
     zoomBtn.textContent = `PNG ${z}×`;
@@ -388,9 +426,10 @@ function mkCard(labelHtml) {
     return { card, zoomBtn, nativeBtn };
 }
 
-function drawBg(ctx, w, h, z, offX = 0) {
-    if (document.getElementById('bgMode').value === 'color') {
-        ctx.fillStyle = document.getElementById('bgColor').value;
+function drawBg(ctx, w, h, z, offX = 0, bg = null) {
+    if (!bg) bg = getSpriteBg();
+    if (bg.mode === 'color') {
+        ctx.fillStyle = bg.color;
         ctx.fillRect(offX, 0, w * z, h * z);
     } else {
         const sz = Math.max(8, z);
@@ -429,7 +468,7 @@ function drawSprite(s, z, grid) {
     const canvas = document.createElement('canvas');
     canvas.width = s.width * z;  canvas.height = s.height * z;
     const ctx = canvas.getContext('2d');
-    drawBg(ctx, s.width, s.height, z);
+    drawBg(ctx, s.width, s.height, z, 0, getSpriteBg());
     pixelDraw(ctx, s.data, s.width, s.height, z);
     if (grid) gridDraw(ctx, s.width, s.height, z);
     attachPixelInspector(canvas, s);
@@ -445,7 +484,7 @@ function drawStrip(frames, z, grid) {
     const ctx = canvas.getContext('2d');
     frames.forEach((frame, i) => {
         const offX = i * (w * z + gap);
-        drawBg(ctx, w, h, z, offX);
+        drawBg(ctx, w, h, z, offX, getSpriteBg());
         pixelDraw(ctx, frame.data, w, h, z, offX);
         if (grid) gridDraw(ctx, w, h, z, offX);
         ctx.fillStyle = '#aaa';
@@ -527,11 +566,11 @@ function setupAnim(baseName, frames, canvas, fpsEl, playBtn) {
     let timerId  = null;
 
     function drawAnimFrame() {
-        const z = getZoom(), grid = getGrid();
+        const z = getSpriteZoom(), grid = getGrid();
         const f = frames[frameIdx];
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawBg(ctx, f.width, f.height, z);
+        drawBg(ctx, f.width, f.height, z, 0, getSpriteBg());
         pixelDraw(ctx, f.data, f.width, f.height, z);
         if (grid) gridDraw(ctx, f.width, f.height, z);
     }
@@ -560,18 +599,26 @@ function setupAnim(baseName, frames, canvas, fpsEl, playBtn) {
     return () => frames[frameIdx]; // getter for the pixel inspector
 }
 
-document.getElementById('zoom').addEventListener('input', renderSprites);
+document.getElementById('zoom-sprites').addEventListener('input', renderSprites);
+document.getElementById('zoom-fonts').addEventListener('input', renderFonts);
 document.getElementById('grid').addEventListener('change', renderSprites);
 document.getElementById('stripMode').addEventListener('change', renderSprites);
-document.getElementById('bgMode').addEventListener('change', () => {
-    document.getElementById('bgColor').style.display =
-        document.getElementById('bgMode').value === 'color' ? '' : 'none';
+document.getElementById('bgMode-sprites').addEventListener('change', () => {
+    document.getElementById('bgColor-sprites').style.display =
+        document.getElementById('bgMode-sprites').value === 'color' ? '' : 'none';
     renderSprites();
 });
-document.getElementById('bgColor').addEventListener('input', renderSprites);
+document.getElementById('bgColor-sprites').addEventListener('input', renderSprites);
+document.getElementById('bgMode-fonts').addEventListener('change', () => {
+    document.getElementById('bgColor-fonts').style.display =
+        document.getElementById('bgMode-fonts').value === 'color' ? '' : 'none';
+    renderFonts();
+});
+document.getElementById('bgColor-fonts').addEventListener('input', renderFonts);
 
-// hide colour picker on initial load (default = checker)
-document.getElementById('bgColor').style.display = 'none';
+// hide colour pickers on initial load (default = checker)
+document.getElementById('bgColor-sprites').style.display = 'none';
+document.getElementById('bgColor-fonts').style.display = 'none';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 function validateAll() {
@@ -599,8 +646,10 @@ function validateAll() {
 function renderFonts() {
     const container = document.getElementById('fonts');
     container.innerHTML = '';
+    const fz = getFontZoom();
+    document.getElementById('zoomVal-fonts').textContent = fz;
     if (!fonts.length) return;
-    const z = getZoom();
+    const z = fz;
     const hdr = document.createElement('h2');
     hdr.className = 'section-header';
     hdr.textContent = 'Fonts';
@@ -608,28 +657,51 @@ function renderFonts() {
     fonts.forEach(font => container.appendChild(mkFontUI(font, z)));
 }
 
+// Compute shared baseline metrics across all glyphs in the font.
+// Used so every charmap cell has the same height with a common baseline.
+function fontMetrics(font) {
+    let top = 0, bot = 1, any = false;
+    for (const g of font.glyphs) {
+        if (g.width === 0 && g.height === 0) continue;
+        if (!any) { top = g.yOffset; bot = g.yOffset + g.height; any = true; }
+        else { top = Math.min(top, g.yOffset); bot = Math.max(bot, g.yOffset + g.height); }
+    }
+    if (!any) { top = 0; bot = font.yAdvance; }
+    return { top, bottom: bot, baseline: -top, cellH: Math.max(1, bot - top) };
+}
+
+// Draw one glyph cell. When `metrics` is supplied every cell shares the same
+// height with glyphs positioned on a common baseline (fixes misalignment).
+function drawGlyph(font, glyphIdx, z, fgColor, metrics = null) {
+    const g = font.glyphs[glyphIdx];
+    if (!g || g.width === 0 || g.height === 0) return null;
+    const bg = getFontBg();
+    const cellH    = metrics ? metrics.cellH    : g.height;
+    const baseline = metrics ? metrics.baseline : 0;
+    const cellW    = metrics
+        ? Math.max(g.xAdvance, g.width + Math.max(0, g.xOffset))
+        : g.width;
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.max(1, cellW) * z;
+    canvas.height = cellH * z;
+    const ctx = canvas.getContext('2d');
+    drawBg(ctx, Math.max(1, cellW), cellH, z, 0, bg);
+    ctx.fillStyle = fgColor;
+    const dy = metrics ? (baseline + g.yOffset) * z : 0;
+    const dx = metrics ? Math.max(0, g.xOffset) * z  : 0;
+    for (let row = 0; row < g.height; row++)
+        for (let col = 0; col < g.width; col++)
+            if (glyphBit(font, g.bitmapOffset, row * g.width + col))
+                ctx.fillRect(dx + col * z, dy + row * z, z, z);
+    if (getGrid()) gridDraw(ctx, Math.max(1, cellW), cellH, z);
+    return canvas;
+}
+
 // 1-bit glyph bitmap: bitmapOffset is a BYTE offset; bits are packed MSB-first
 function glyphBit(font, bitmapOffset, bitIndex) {
     const globalBit = bitmapOffset * 8 + bitIndex;
     const byte = font.bitmaps[Math.floor(globalBit / 8)];
     return (byte !== undefined) ? (byte >> (7 - (globalBit % 8))) & 1 : 0;
-}
-
-function drawGlyph(font, glyphIdx, z, fgColor) {
-    const g = font.glyphs[glyphIdx];
-    if (!g || g.width === 0 || g.height === 0) return null;
-    const canvas = document.createElement('canvas');
-    canvas.width  = g.width  * z;
-    canvas.height = g.height * z;
-    const ctx = canvas.getContext('2d');
-    drawBg(ctx, g.width, g.height, z);
-    ctx.fillStyle = fgColor;
-    for (let row = 0; row < g.height; row++)
-        for (let col = 0; col < g.width; col++)
-            if (glyphBit(font, g.bitmapOffset, row * g.width + col))
-                ctx.fillRect(col * z, row * z, z, z);
-    if (getGrid()) gridDraw(ctx, g.width, g.height, z);
-    return canvas;
 }
 
 function renderFontPreview(font, text, z, fgColor, canvas) {
@@ -659,7 +731,7 @@ function renderFontPreview(font, text, z, fgColor, canvas) {
     canvas.width  = Math.max(1, totalW * z);
     canvas.height = canvasH * z;
     const ctx = canvas.getContext('2d');
-    drawBg(ctx, totalW, canvasH, z);
+    drawBg(ctx, totalW, canvasH, z, 0, getFontBg());
     ctx.fillStyle = fgColor;
     let curX = 0;
     for (const ch of text) {
@@ -684,6 +756,7 @@ function mkFontUI(font, z) {
     card.className = 'font-card';
 
     // header
+    const metrics = fontMetrics(font);
     const activeCount = font.glyphs.filter(g => g.width > 0 || g.xAdvance > 0).length;
     const hdr = document.createElement('div');
     hdr.className = 'sprite-label';
@@ -691,6 +764,15 @@ function mkFontUI(font, z) {
         `0x${font.first.toString(16).toUpperCase()}&ndash;` +
         `0x${font.last.toString(16).toUpperCase()} &middot; yAdv&nbsp;${font.yAdvance}</span>`;
     card.appendChild(hdr);
+
+    // font metrics row
+    const metaRow = document.createElement('div');
+    metaRow.className = 'font-meta';
+    metaRow.innerHTML =
+        `Leading&nbsp;<b>${font.yAdvance}</b> &nbsp;&middot;&nbsp; ` +
+        `Baseline&nbsp;<b>${metrics.baseline}</b> &nbsp;&middot;&nbsp; ` +
+        `Cell height&nbsp;<b>${metrics.cellH}px</b>`;
+    card.appendChild(metaRow);
 
     // preview controls row
     const previewRow = document.createElement('div');
@@ -722,12 +804,12 @@ function mkFontUI(font, z) {
         cell.title = `U+${code.toString(16).toUpperCase().padStart(2, '0')} '${
             code >= 33 ? String.fromCodePoint(code) : ' '}'`;
         if (g.width > 0 && g.height > 0) {
-            cell.appendChild(drawGlyph(font, i, cmZ, font.fgColor));
+            cell.appendChild(drawGlyph(font, i, cmZ, font.fgColor, metrics));
         } else {
             const ph = document.createElement('div');
             ph.className = 'font-char-empty';
             ph.style.width  = `${Math.max(4, g.xAdvance) * cmZ}px`;
-            ph.style.height = `${font.yAdvance * cmZ}px`;
+            ph.style.height = `${metrics.cellH * cmZ}px`;
             cell.appendChild(ph);
         }
         const lbl = document.createElement('div');
@@ -757,7 +839,7 @@ function mkFontUI(font, z) {
                 const gg = font.glyphs[gi];
                 if (gg.width === 0 && gg.height === 0 && gg.xAdvance === 0) continue;
                 if (visIdx === cellIdx) {
-                    const ng = drawGlyph(font, gi, cmZ, font.fgColor);
+                    const ng = drawGlyph(font, gi, cmZ, font.fgColor, metrics);
                     if (ng) cell.replaceChild(ng, gc);
                     break;
                 }
@@ -1025,10 +1107,10 @@ async function handleFiles(files) {
     files = files.filter(f => f.name.endsWith('.h'));
     if (!files.length) return;
 
-    // Ask once whether to add to existing sprites or replace them all
-    let merge = false;
-    if (sprites.length > 0) {
-        merge = confirm(
+    // On Sprites tab: prompt to add or replace sprites. On Fonts tab: always merge silently.
+    let mergeSprites = currentTab === 'fonts';
+    if (!mergeSprites && sprites.length > 0) {
+        mergeSprites = confirm(
             `${sprites.length} sprite(s) already loaded.\n\n` +
             `OK     → Add ${files.length} file(s)\n` +
             `Cancel → Replace everything`
@@ -1037,11 +1119,15 @@ async function handleFiles(files) {
 
     for (let i = 0; i < files.length; i++) {
         const code = await files[i].text();
-        // Show the first file in the textarea (paste workflow); subsequent files
-        // are loaded silently so the last single-file experience is unchanged.
         if (i === 0) document.getElementById('code').value = code;
-        parseCode(code, files[i].name, i === 0 ? merge : true);
+        parseCode(code, files[i].name, i === 0 ? mergeSprites : true);
     }
+
+    // Auto-switch to the tab that received content if the current tab ended up empty
+    if (currentTab === 'sprites' && sprites.length === 0 && fonts.length > 0)
+        switchTab('fonts');
+    else if (currentTab === 'fonts' && fonts.length === 0 && sprites.length > 0)
+        switchTab('sprites');
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────

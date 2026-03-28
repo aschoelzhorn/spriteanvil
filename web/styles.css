@@ -26,6 +26,22 @@ textarea {
 }
 
 .toolbar { display: flex; gap: 8px; margin: 6px 0; }
+
+/* ─── Tab bar ─────────────────────────────────────────────────────────────────── */
+.tab-bar {
+    display: flex; gap: 2px;
+    border-bottom: 2px solid #2a2a2a;
+    margin: 12px 0 0;
+}
+.tab-btn {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: #666; padding: 7px 22px; font-size: 13px; font-family: inherit;
+    border-radius: 4px 4px 0 0; cursor: pointer; margin-bottom: -2px;
+    transition: color .15s, background .15s;
+}
+.tab-btn:hover { background: #1a1a1a; color: #aaa; }
+.tab-btn.active { color: #7bf; border-bottom-color: #4a9eff; background: #13131e; }
+.tab-panel { margin-top: 4px; }
 button {
     background: #236; color: #fff; border: none; padding: 8px 18px;
     border-radius: 4px; cursor: pointer; font-size: 13px;
@@ -113,6 +129,11 @@ input[type=color] {
     background: #1a1a1a; border: 1px solid #2d2d2d;
     border-radius: 6px; padding: 10px; margin-bottom: 12px; width: 100%;
 }
+.font-meta {
+    font-size: 11px; color: #778; margin: 3px 0 8px;
+}
+.font-meta b { color: #99b; font-weight: normal; }
+
 .font-preview-row {
     display: flex; align-items: center; gap: 8px; margin: 6px 0;
 }

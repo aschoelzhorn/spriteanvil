@@ -42,33 +42,51 @@
 
 <div class="toolbar">
   <button onclick="doParse()">Parse</button>
-  <button onclick="exportZip()">Export ZIP</button>
+  <button id="btn-export-zip" onclick="exportZip()">Export ZIP</button>
 </div>
 
-<div class="controls">
-  <label>Zoom <input type="range" id="zoom" min="1" max="64" value="4"> <span id="zoomVal">4</span>px</label>
-  <label><input type="checkbox" id="grid" checked> Grid</label>
-  <label><input type="checkbox" id="stripMode" checked> Frames as strip</label>
-  <label><input type="checkbox" id="inspector" checked> Inspector</label>
-  <label class="bg-label">BG
-    <select id="bgMode">
-      <option value="checker">Checkerboard</option>
-      <option value="color">Solid color</option>
-    </select>
-    <input type="color" id="bgColor" value="#111111" title="Transparent pixel color">
-  </label>
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-btn-sprites" onclick="switchTab('sprites')">Sprites</button>
+  <button class="tab-btn" id="tab-btn-fonts" onclick="switchTab('fonts')">Fonts</button>
 </div>
 
-<div id="sprites"></div>
-<div id="fonts"></div>
+<div id="tab-sprites" class="tab-panel">
+  <div class="controls">
+    <label>Zoom <input type="range" id="zoom-sprites" min="1" max="64" value="4"> <span id="zoomVal-sprites">4</span>px</label>
+    <label><input type="checkbox" id="grid" checked> Grid</label>
+    <label><input type="checkbox" id="stripMode" checked> Frames as strip</label>
+    <label><input type="checkbox" id="inspector" checked> Inspector</label>
+    <label class="bg-label">BG
+      <select id="bgMode-sprites">
+        <option value="checker">Checkerboard</option>
+        <option value="color">Solid color</option>
+      </select>
+      <input type="color" id="bgColor-sprites" value="#111111" title="Transparent pixel background color">
+    </label>
+  </div>
+  <div id="sprites"></div>
+  <details open>
+    <summary>Validation</summary>
+    <pre id="validation">(no sprites loaded)</pre>
+  </details>
+</div>
+
+<div id="tab-fonts" class="tab-panel" style="display:none">
+  <div class="controls">
+    <label>Zoom <input type="range" id="zoom-fonts" min="1" max="64" value="4"> <span id="zoomVal-fonts">4</span>px</label>
+    <label class="bg-label">BG
+      <select id="bgMode-fonts">
+        <option value="checker">Checkerboard</option>
+        <option value="color">Solid color</option>
+      </select>
+      <input type="color" id="bgColor-fonts" value="#111111" title="Canvas background color">
+    </label>
+  </div>
+  <div id="fonts"></div>
+</div>
 
 <!-- Pixel inspector tooltip (shared, moved by JS) -->
 <div id="px-tooltip"></div>
-
-<details open>
-  <summary>Validation</summary>
-  <pre id="validation">(no sprites loaded)</pre>
-</details>
 
 <script src="app.js"></script>
 </body>
