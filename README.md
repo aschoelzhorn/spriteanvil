@@ -41,6 +41,7 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 | **Export ZIP**    | Original source files + per-sprite split `.h` + `.png` preview + root `assets.h`                    |
 | **Save PNG**      | Per-sprite **PNG N×** (current zoom) and **PNG 1×** (native size) buttons on every sprite card      |
 | **Fonts**         | Parse and preview Adafruit GFX font files — glyph charmap + live text preview with colour picker    |
+| **Font subsetting** | Subset any loaded font to only the characters you need and download a ready-to-use `.h` file      |
 
 ---
 
@@ -174,6 +175,16 @@ Once loaded, each font is shown in a **Fonts** section below the sprites with:
 - A **glyph charmap** — every character in the font rendered at the current zoom
 - A **live text preview** — type any string to see it rendered pixel-accurately
 - A **colour picker** to change the glyph foreground colour
+- A **Subset & Export .h** panel — pick characters to keep (quick-set buttons or free-type), set the C identifier name, and download a minimal `.h` with only the needed glyphs
+
+### Font subsetting
+
+The **Subset & Export .h** panel (collapsed by default under each font card) lets you trim a font down to save flash memory on the microcontroller:
+
+1. Click a quick-set button (**Digits**, **+ colon**, **+ date**, **Uppercase**, **Lowercase**, **Printable**, **Full font**) or type any characters into the input
+2. The glyph count updates live — gaps in the codepoint range are kept as zero-size spacers (fully GFX-compatible)
+3. Set the C identifier name (default: `FontName_sub`)
+4. Click **⬇ Download .h** — the file contains packed `Bitmaps[]`, `Glyphs[]`, and the `GFXfont` struct, ready to `#include`
 
 ---
 
@@ -214,6 +225,7 @@ Split `.h` files preserve the original declaration style — `uint16_t` vs `unsi
 | **FG** / **BG** color pickers | Per 1-bit sprite: set foreground (bit=1) and background (bit=0) colours; **Transp. BG** checkbox makes background pixels transparent |
 | Font colour picker           | Change the glyph foreground colour for a loaded font        |
 | Font text input              | Type preview text to render the font at current zoom        |
+| **Subset & Export .h**       | Trim font to selected characters; download minimal `.h` file |
 
 ---
 

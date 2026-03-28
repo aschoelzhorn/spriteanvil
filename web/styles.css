@@ -145,7 +145,50 @@ input[type=color] {
 .mono-picker-label {
     display: flex; align-items: center; gap: 4px; cursor: pointer;
 }
-
+/* ─── Font subset panel ──────────────────────────────────────────────────────── */
+.font-subset-panel {
+    margin-top: 12px; border-top: 1px solid #2d2d2d; padding-top: 8px;
+}
+.font-subset-panel > summary {
+    font-size: 12px; color: #7bf; cursor: pointer; padding: 2px 0;
+}
+.font-subset-panel > summary:hover { color: #adf; }
+.font-subset-body {
+    display: flex; flex-direction: column; gap: 8px; margin-top: 8px;
+}
+.font-subset-presets {
+    display: flex; flex-wrap: wrap; gap: 5px;
+}
+.subset-preset-btn {
+    padding: 3px 9px; font-size: 11px;
+    background: #1a2030; border: 1px solid #334; color: #99c; border-radius: 3px;
+}
+.subset-preset-btn:hover { background: #223; border-color: #55a; color: #bbf; }
+.font-subset-input-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.font-subset-chars {
+    flex: 1; min-width: 200px; max-width: 420px;
+    background: #111; color: #eee; border: 1px solid #444;
+    border-radius: 4px; padding: 4px 8px; font-size: 13px; font-family: monospace;
+}
+.font-subset-chars:focus { outline: none; border-color: #7bf; }
+.font-subset-count { font-size: 11px; white-space: nowrap; }
+.font-subset-dl-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.font-subset-name {
+    width: 200px;
+    background: #111; color: #eee; border: 1px solid #444;
+    border-radius: 4px; padding: 4px 8px; font-size: 13px; font-family: monospace;
+}
+.font-subset-name:focus { outline: none; border-color: #7bf; }
+.subset-dl-btn {
+    padding: 5px 14px; font-size: 12px;
+    background: #1a3a1a; border: 1px solid #3a7a3a; color: #8d8;
+    border-radius: 4px;
+}
+.subset-dl-btn:hover { background: #2a5a2a; border-color: #5a9a5a; color: #aea; }
 /* ─── Pixel hover inspector ──────────────────────────────────────────────── */
 #px-tooltip {
     position: fixed; display: none; pointer-events: none; z-index: 9999;

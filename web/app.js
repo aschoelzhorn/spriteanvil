@@ -633,17 +633,33 @@ function drawGlyph(font, glyphIdx, z, fgColor) {
 }
 
 function renderFontPreview(font, text, z, fgColor, canvas) {
-    const baseline = font.yAdvance - 1; // unscaled pixels; yOffset negative = above baseline
+    // Compute the tight bounding box of the actual rendered glyphs.
+    // baseline = distance from top of canvas to the cursor Y (GFX cursor sits at baseline;
+    // yOffset is negative for pixels above it, positive for pixels below).
+    let topExtent = 0, bottomExtent = 1;
+    let hasGlyphs = false;
     let totalW = 0;
     for (const ch of text) {
         const code = ch.codePointAt(0);
         if (code < font.first || code > font.last) { totalW += font.yAdvance; continue; }
-        totalW += font.glyphs[code - font.first].xAdvance;
+        const g = font.glyphs[code - font.first];
+        totalW += g.xAdvance;
+        if (g.width > 0 && g.height > 0) {
+            if (!hasGlyphs) {
+                topExtent = g.yOffset; bottomExtent = g.yOffset + g.height; hasGlyphs = true;
+            } else {
+                topExtent    = Math.min(topExtent,    g.yOffset);
+                bottomExtent = Math.max(bottomExtent, g.yOffset + g.height);
+            }
+        }
     }
+    if (!hasGlyphs) { topExtent = 0; bottomExtent = font.yAdvance; }
+    const baseline = -topExtent;
+    const canvasH  = Math.max(1, bottomExtent - topExtent);
     canvas.width  = Math.max(1, totalW * z);
-    canvas.height = Math.max(1, font.yAdvance * z);
+    canvas.height = canvasH * z;
     const ctx = canvas.getContext('2d');
-    drawBg(ctx, totalW, font.yAdvance, z);
+    drawBg(ctx, totalW, canvasH, z);
     ctx.fillStyle = fgColor;
     let curX = 0;
     for (const ch of text) {
@@ -751,7 +767,204 @@ function mkFontUI(font, z) {
         renderFontPreview(font, font.previewText, z, font.fgColor, previewCanvas);
     });
     updatePreview();
+
+    card.appendChild(mkSubsetUI(font));
     return card;
+}
+
+// ─── Font subsetting ──────────────────────────────────────────────────────────
+
+// Extracts bits for one glyph from the font's packed bitmap buffer.
+function extractGlyphBits(font, gi) {
+    const g = font.glyphs[gi];
+    const bits = [];
+    for (let b = 0; b < g.width * g.height; b++) bits.push(glyphBit(font, g.bitmapOffset, b));
+    return bits;
+}
+
+// Returns a new font object containing only the codepoints in keepCodes.
+// Gaps in the range are filled with zero-size spacer glyphs (GFX-compatible).
+function subsetFont(font, keepCodes) {
+    const keepSet = new Set(keepCodes.filter(c => c >= font.first && c <= font.last));
+    if (keepSet.size === 0) return null;
+    const newFirst = Math.min(...keepSet);
+    const newLast  = Math.max(...keepSet);
+
+    const newBitmaps = [];
+    const newGlyphs  = [];
+    let   bitPos     = 0;
+
+    for (let code = newFirst; code <= newLast; code++) {
+        const origIdx  = code - font.first;
+        const g        = (origIdx >= 0 && origIdx < font.glyphs.length) ? font.glyphs[origIdx] : null;
+        const byteOff  = Math.floor(bitPos / 8);
+
+        if (keepSet.has(code) && g && g.width > 0 && g.height > 0) {
+            for (const bit of extractGlyphBits(font, origIdx)) {
+                const bIdx = Math.floor(bitPos / 8);
+                while (newBitmaps.length <= bIdx) newBitmaps.push(0);
+                if (bit) newBitmaps[bIdx] |= (1 << (7 - (bitPos % 8)));
+                bitPos++;
+            }
+            // Pad to byte boundary after each glyph — matches fontconvert.c behaviour
+            // (bitmapOffset is a BYTE index, so every glyph must start on a byte boundary)
+            if (bitPos % 8 !== 0) bitPos += (8 - (bitPos % 8));
+            newGlyphs.push({ bitmapOffset: byteOff,
+                width: g.width, height: g.height,
+                xAdvance: g.xAdvance, xOffset: g.xOffset, yOffset: g.yOffset });
+        } else {
+            // Gap glyph: zero xAdvance so SpriteAnvil skips it in the charmap
+            // and the GFX renderer on-device advances by 0 (character silently skipped).
+            newGlyphs.push({ bitmapOffset: byteOff,
+                width: 0, height: 0, xAdvance: 0, xOffset: 0, yOffset: 0 });
+        }
+    }
+    if (newBitmaps.length === 0) newBitmaps.push(0);
+
+    return { name: font.name, bitmaps: newBitmaps, glyphs: newGlyphs,
+             first: newFirst, last: newLast, yAdvance: font.yAdvance,
+             previewText: font.previewText, fgColor: font.fgColor };
+}
+
+// Serialises a font object to a valid GFXfont C header string.
+function fontToHeader(font, subName) {
+    const hex2 = n => '0x' + n.toString(16).toUpperCase().padStart(2, '0');
+    const pad  = (n, w) => String(n).padStart(w);
+    const lines = [
+        '#pragma once',
+        '#include <Adafruit_GFX.h>',
+        '',
+        `// Subset of ${font.name}  (${font.glyphs.length} glyphs, ` +
+            `U+${font.first.toString(16).toUpperCase().padStart(2,'0')}` +
+            `\u2013U+${font.last.toString(16).toUpperCase().padStart(2,'0')})`,
+        '',
+        `const uint8_t ${subName}Bitmaps[] PROGMEM = {`,
+    ];
+    for (let i = 0; i < font.bitmaps.length; i += 16)
+        lines.push('    ' + font.bitmaps.slice(i, i + 16).map(hex2).join(', ') + ',');
+    lines.push('};', '');
+
+    lines.push(`const GFXglyph ${subName}Glyphs[] PROGMEM = {`);
+    font.glyphs.forEach((g, i) => {
+        const code = font.first + i;
+        const ch   = (code >= 33 && code <= 126) ? String.fromCodePoint(code)
+                                                  : `U+${code.toString(16).toUpperCase().padStart(4,'0')}`;
+        const sep  = i < font.glyphs.length - 1 ? ',' : ' ';
+        lines.push(`    { ${pad(g.bitmapOffset,5)}, ${pad(g.width,3)}, ${pad(g.height,3)}, ` +
+                   `${pad(g.xAdvance,3)}, ${pad(g.xOffset,3)}, ${pad(g.yOffset,4)} }${sep} // ${ch}`);
+    });
+    lines.push('};', '');
+
+    lines.push(`const GFXfont ${subName} PROGMEM = {`,
+        `    (uint8_t  *)${subName}Bitmaps,`,
+        `    (GFXglyph *)${subName}Glyphs,`,
+        `    ${hex2(font.first)}, ${hex2(font.last)},`,
+        `    ${font.yAdvance}`,
+        '};');
+    return lines.join('\n');
+}
+
+// Quick-set character groups for the subset UI.
+const SUBSET_PRESETS = [
+    { label: 'Digits',       chars: '0123456789'                  },
+    { label: '+ colon',      chars: '0123456789:'                 },
+    { label: '+ date',       chars: '0123456789:/.-'              },
+    { label: 'Uppercase',    chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  },
+    { label: 'Lowercase',    chars: 'abcdefghijklmnopqrstuvwxyz'  },
+    { label: 'Printable',    chars: Array.from({length: 95}, (_, i) => String.fromCodePoint(32 + i)).join('') },
+    { label: 'Full font',    chars: null }, // special: keep all
+];
+
+function mkSubsetUI(font) {
+    const det = document.createElement('details');
+    det.className = 'font-subset-panel';
+    const sum = document.createElement('summary');
+    sum.textContent = 'Subset & Export .h';
+    det.appendChild(sum);
+
+    const body = document.createElement('div');
+    body.className = 'font-subset-body';
+
+    // --- preset buttons ---
+    const presetRow = document.createElement('div');
+    presetRow.className = 'font-subset-presets';
+    SUBSET_PRESETS.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'subset-preset-btn';
+        btn.textContent = p.label;
+        btn.onclick = () => {
+            charsInput.value = p.chars === null
+                ? Array.from({length: font.last - font.first + 1},
+                    (_, i) => String.fromCodePoint(font.first + i)).join('')
+                : p.chars;
+            updateCount();
+        };
+        presetRow.appendChild(btn);
+    });
+    body.appendChild(presetRow);
+
+    // --- chars input ---
+    const inputRow = document.createElement('div');
+    inputRow.className = 'font-subset-input-row';
+    const charsInput = document.createElement('input');
+    charsInput.type = 'text';
+    charsInput.className = 'font-subset-chars';
+    charsInput.placeholder = 'Characters to keep, e.g. 0123456789:';
+    charsInput.value = '0123456789';
+
+    const countLabel = document.createElement('span');
+    countLabel.className = 'font-subset-count';
+
+    function updateCount() {
+        const codes  = [...new Set([...charsInput.value].map(c => c.codePointAt(0)))]
+                         .filter(c => c >= font.first && c <= font.last);
+        const active = codes.filter(c => {
+            const g = font.glyphs[c - font.first];
+            return g && (g.width > 0 || g.xAdvance > 0);
+        });
+        countLabel.textContent = `${active.length} glyph${active.length !== 1 ? 's' : ''} selected`;
+        countLabel.style.color = active.length > 0 ? '#7df' : '#f77';
+    }
+    charsInput.addEventListener('input', updateCount);
+    updateCount();
+
+    inputRow.appendChild(charsInput);
+    inputRow.appendChild(countLabel);
+    body.appendChild(inputRow);
+
+    // --- name + download ---
+    const dlRow = document.createElement('div');
+    dlRow.className = 'font-subset-dl-row';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'font-subset-name';
+    nameInput.value = font.name + '_sub';
+    nameInput.placeholder = 'C identifier name';
+
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'subset-dl-btn';
+    dlBtn.textContent = '⬇ Download .h';
+    dlBtn.onclick = () => {
+        const codes = [...new Set([...charsInput.value].map(c => c.codePointAt(0)))];
+        const sub   = subsetFont(font, codes);
+        if (!sub) { alert('No matching glyphs — nothing to export.'); return; }
+        const subName = (nameInput.value.trim() || font.name + '_sub').replace(/\W/g, '_');
+        const content = fontToHeader(sub, subName);
+        const blob = new Blob([content], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = subName + '.h';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    };
+
+    dlRow.appendChild(nameInput);
+    dlRow.appendChild(dlBtn);
+    body.appendChild(dlRow);
+
+    det.appendChild(body);
+    return det;
 }
 
 // ─── Drag & Drop + file browse ────────────────────────────────────────────────
