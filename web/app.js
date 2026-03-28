@@ -28,6 +28,44 @@ function parseCode(code, filename, merge) {
         /const\s+byte\s+(\w+)_size\s*\[\d+\]\s*=\s*\{(\d+)\s*,\s*(\d+)\}/gi
     )) sizes[m[1].toLowerCase()] = { w: +m[2], h: +m[3], origDecl: m[0].trim() };
 
+    // 2.5. #define width/height macros (e.g. #define logo_width 216 / logo_height 131)
+    const defW = {}, defH = {};
+    for (const m of code.matchAll(/#define\s+(\w+)_width\s+(\d+)/gi))
+        defW[m[1].toLowerCase()] = +m[2];
+    for (const m of code.matchAll(/#define\s+(\w+)_height\s+(\d+)/gi))
+        defH[m[1].toLowerCase()] = +m[2];
+    // Match a name against #define macros:
+    //   1. Exact:   array name === define key
+    //   2. Forward: define key is a prefix of array name (rancilio_logo_bits → rancilio_logo)
+    //   3. Reverse: array name prefix starts a define key (update_bits→update → update_icon)
+    //               longest/most-specific key wins in case of ties
+    //   4. Single-pair fallback (opt-in): if exactly one pair exists, use it
+    const resolveDefines = (name, singleFallback = false) => {
+        const n = name.toLowerCase();
+        if (defW[n] !== undefined && defH[n] !== undefined) return { w: defW[n], h: defH[n] };
+        const parts = n.split('_');
+        // forward: define key is prefix of array name
+        for (let i = parts.length - 1; i > 0; i--) {
+            const p = parts.slice(0, i).join('_');
+            if (defW[p] !== undefined && defH[p] !== undefined) return { w: defW[p], h: defH[p] };
+        }
+        // reverse: array name prefix is prefix of define key
+        for (let i = parts.length - 1; i > 0; i--) {
+            const p = parts.slice(0, i).join('_');
+            const hits = Object.keys(defW).filter(k => k.startsWith(p) && defH[k] !== undefined);
+            if (hits.length > 0) {
+                hits.sort((a, b) => b.length - a.length); // most-specific first
+                return { w: defW[hits[0]], h: defH[hits[0]] };
+            }
+        }
+        // single-pair fallback for unsigned char arrays
+        if (singleFallback) {
+            const keys = Object.keys(defW).filter(k => defH[k] !== undefined);
+            if (keys.length === 1) return { w: defW[keys[0]], h: defH[keys[0]] };
+        }
+        return null;
+    };
+
     // 3. 2-D frame arrays  const uint16_t NAME [][N] PROGMEM = { {…},{…} };
     const handled2D = new Set();
     const re2D = /const\s+(?:unsigned\s+short|uint16_t)\s+(\w+)\s*\[\s*\]\s*\[(\d+)\][^;=]*=\s*\{/g;
@@ -37,7 +75,7 @@ function parseCode(code, filename, merge) {
         const framePixels = +m2D[2];
         const body = extractBracedContent(code, m2D.index + m2D[0].length - 1);
         if (!body) continue;
-        const se = sizes[name.toLowerCase()];
+        const se = sizes[name.toLowerCase()] || resolveDefines(name);
         const fw = se ? se.w : Math.round(Math.sqrt(framePixels));
         const fh = se ? se.h : Math.round(framePixels / Math.max(1, fw));
         [...body.matchAll(/\{([^}]*)\}/g)].forEach((fm, i) => {
@@ -63,13 +101,47 @@ function parseCode(code, filename, merge) {
         const raw = m[6].replace(/\/\/.*$/gm, '');
         const data = parseValues(raw);
         if (!data.length) continue;
-        const se = sizes[name.toLowerCase()];
+        const se = sizes[name.toLowerCase()] || resolveDefines(name);
         const w = se ? se.w : Math.round(Math.sqrt(data.length));
         const h = se ? se.h : Math.round(data.length / Math.max(1, w));
         sprites.push({
             name, data, width: w, height: h, isFrame: false,
             sizeExplicit: !!se, origType, useProgmem: /\bPROGMEM\b/.test(m[5]),
             origSizeDecl: se ? se.origDecl : null
+        });
+    }
+
+    // ─── 4.5. unsigned char 1-bit bitmaps (XBM / PROGMEM style)
+    //          Bits are packed LSB-first; rows are padded to a byte boundary.
+    //          Size must come from a #define NAME_width/height pair in the same file.
+    for (const m of code.matchAll(
+        /const\s+unsigned\s+char\s+(\w+)\s*\[\s*\d*\s*\][^;=]*=\s*\{([\s\S]*?)\}/g
+    )) {
+        const name = m[1];
+        if (/^.+_size$/i.test(name)) continue;
+        const raw = m[2].replace(/\/\/.*$/gm, '');
+        const bytes = raw.split(',').map(v => {
+            v = v.trim();
+            if (!v) return null;
+            if (/^0[xX]/.test(v)) return parseInt(v, 16);
+            if (/^\d+$/.test(v)) return parseInt(v, 10);
+            return null;
+        }).filter(v => v !== null);
+        if (!bytes.length) continue;
+        const sd = sizes[name.toLowerCase()] || resolveDefines(name, true);
+        if (!sd) continue;                              // can't unpack without explicit W/H
+        const { w, h } = sd;
+        const bytesPerRow = Math.ceil(w / 8);
+        const data = [];
+        for (let y = 0; y < h; y++)
+            for (let x = 0; x < w; x++) {
+                const b = bytes[y * bytesPerRow + Math.floor(x / 8)] ?? 0;
+                data.push(((b >> (x % 8)) & 1) ? 0x0000 : 0xFFFF); // 1=black, 0=white
+            }
+        sprites.push({
+            name, data, width: w, height: h, isFrame: false,
+            sizeExplicit: true, origType: 'unsigned char',
+            useProgmem: /\bPROGMEM\b/.test(m[0]), origSizeDecl: null
         });
     }
 
@@ -433,7 +505,7 @@ function renderFontPreview(font, text, z, fgColor, canvas) {
 }
 
 function mkFontUI(font, z) {
-    const cmZ  = Math.max(2, Math.min(6, z)); // charmap uses capped zoom
+    const cmZ  = Math.max(1, Math.min(6, z)); // charmap uses capped zoom
     const card = document.createElement('div');
     card.className = 'font-card';
 
