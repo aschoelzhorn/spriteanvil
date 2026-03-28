@@ -132,17 +132,20 @@ function parseCode(code, filename, merge) {
         if (!sd) continue;                              // can't unpack without explicit W/H
         const { w, h } = sd;
         const bytesPerRow = Math.ceil(w / 8);
-        const data = [];
+        const bits = [];
         for (let y = 0; y < h; y++)
             for (let x = 0; x < w; x++) {
                 const b = bytes[y * bytesPerRow + Math.floor(x / 8)] ?? 0;
-                data.push(((b >> (x % 8)) & 1) ? 0x0000 : 0xFFFF); // 1=black, 0=white
+                bits.push((b >> (x % 8)) & 1);
             }
-        sprites.push({
-            name, data, width: w, height: h, isFrame: false,
+        const monoSprite = {
+            name, bits, data: [], width: w, height: h, isFrame: false,
             sizeExplicit: true, origType: 'unsigned char',
-            useProgmem: /\bPROGMEM\b/.test(m[0]), origSizeDecl: null
-        });
+            useProgmem: /\bPROGMEM\b/.test(m[0]), origSizeDecl: null,
+            isMono: true, fgColor: '#ffffff', bgColor: '#000000', bgTransparent: true
+        };
+        recolorMono(monoSprite);
+        sprites.push(monoSprite);
     }
 
     // ─── 5. GFX font bitmaps: const uint8_t NAMEBitmaps[] PROGMEM = { … };
@@ -207,6 +210,74 @@ function getZoom()  { return +document.getElementById('zoom').value; }
 function getGrid()  { return document.getElementById('grid').checked; }
 function getStrip() { return document.getElementById('stripMode').checked; }
 
+// ─── Mono (1-bit) color helpers ──────────────────────────────────────────────────
+function hexToRgb565(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+}
+
+function recolorMono(s) {
+    const fg = hexToRgb565(s.fgColor);
+    const bg = s.bgTransparent ? 0xFEFE : hexToRgb565(s.bgColor);
+    s.data = s.bits.map(bit => bit ? fg : bg);
+}
+
+function mkMonoPickers(s, canvas) {
+    const row = document.createElement('div');
+    row.className = 'mono-pickers';
+
+    // FG
+    const fgWrap = document.createElement('label');
+    fgWrap.className = 'mono-picker-label';
+    fgWrap.title = 'Foreground — drawn pixels (bit = 1)';
+    fgWrap.appendChild(document.createTextNode('FG '));
+    const fgInput = document.createElement('input');
+    fgInput.type = 'color'; fgInput.value = s.fgColor;
+    fgWrap.appendChild(fgInput);
+    row.appendChild(fgWrap);
+
+    // Transparent BG toggle
+    const transpWrap = document.createElement('label');
+    transpWrap.className = 'mono-picker-label';
+    const transpCheck = document.createElement('input');
+    transpCheck.type = 'checkbox'; transpCheck.checked = s.bgTransparent;
+    transpWrap.appendChild(transpCheck);
+    transpWrap.appendChild(document.createTextNode(' Transp. BG'));
+    row.appendChild(transpWrap);
+
+    // BG (hidden when transparent)
+    const bgWrap = document.createElement('label');
+    bgWrap.className = 'mono-picker-label';
+    bgWrap.title = 'Background — empty pixels (bit = 0)';
+    bgWrap.appendChild(document.createTextNode('BG '));
+    const bgInput = document.createElement('input');
+    bgInput.type = 'color'; bgInput.value = s.bgColor;
+    bgWrap.appendChild(bgInput);
+    bgWrap.style.display = s.bgTransparent ? 'none' : '';
+    row.appendChild(bgWrap);
+
+    function refresh() {
+        recolorMono(s);
+        const z = getZoom(), g = getGrid();
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBg(ctx, s.width, s.height, z);
+        pixelDraw(ctx, s.data, s.width, s.height, z);
+        if (g) gridDraw(ctx, s.width, s.height, z);
+    }
+
+    fgInput.addEventListener('input', () => { s.fgColor = fgInput.value; refresh(); });
+    bgInput.addEventListener('input', () => { s.bgColor = bgInput.value; refresh(); });
+    transpCheck.addEventListener('change', () => {
+        s.bgTransparent = transpCheck.checked;
+        bgWrap.style.display = transpCheck.checked ? 'none' : '';
+        refresh();
+    });
+    return row;
+}
+
 function renderSprites() {
     document.getElementById('zoomVal').textContent = getZoom();
     const z = getZoom(), grid = getGrid(), useStrip = getStrip();
@@ -221,7 +292,9 @@ function renderSprites() {
 
     singles.forEach(s => {
         const { card, zoomBtn, nativeBtn } = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
-        card.appendChild(drawSprite(s, z, grid));
+        const canvas = drawSprite(s, z, grid);
+        card.appendChild(canvas);
+        if (s.isMono) card.appendChild(mkMonoPickers(s, canvas));
         zoomBtn.onclick   = () => downloadCanvas(drawSprite(s, getZoom(), false), s.name);
         nativeBtn.onclick = () => downloadCanvas(drawSprite(s, 1, false), s.name);
         container.appendChild(card);
