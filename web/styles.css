@@ -136,3 +136,16 @@ input[type=color] {
 .font-char-cell canvas { image-rendering: pixelated; border: 1px solid #1e1e1e; }
 .font-char-empty { background: #161616; border: 1px dashed #252525; }
 .font-char-label { font-size: 9px; color: #555; line-height: 1; font-family: monospace; }
+
+/* ─── Pixel hover inspector ──────────────────────────────────────────────── */
+#px-tooltip {
+    position: fixed; display: none; pointer-events: none; z-index: 9999;
+    background: #111d; border: 1px solid #444; border-radius: 5px;
+    padding: 5px 8px; font: 11px/1.6 monospace; color: #eee;
+    white-space: nowrap; box-shadow: 0 2px 8px #0008;
+}
+#px-tooltip .px-swatch {
+    display: inline-block; width: 12px; height: 12px;
+    border: 1px solid #555; border-radius: 2px;
+    vertical-align: middle; margin-right: 5px;
+}

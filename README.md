@@ -31,6 +31,7 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 |-------------------|-----------------------------------------------------------------------------------------------------|
 | **Parse**         | Drag & drop or paste `.h` files (select multiple, or drop a whole folder) containing `uint16_t` / `unsigned short` / `unsigned char` C arrays |
 | **Render**        | RGB565 → RGB888 canvas preview with zoom (1–64 px) and optional pixel grid                          |
+| **Pixel inspector** | Hover over any sprite canvas to see pixel coordinates, RGB565 hex value, and decoded RGB colour  |
 | **1-bit bitmaps** | Monochrome `unsigned char` XBM/PROGMEM bitmaps rendered as black & white (LSB-first, byte-padded)   |
 | **Transparency**  | Checkerboard pattern *or* a custom solid colour for transparent pixels (`0xFEFE`)                   |
 | **Animation**     | Multi-frame arrays play as live animation — ▶/⏸ toggle + per-animation FPS slider                   |
@@ -209,6 +210,7 @@ Split `.h` files preserve the original declaration style — `uint16_t` vs `unsi
 | **FPS** slider               | Animation speed 1–30 fps per sprite group                   |
 | **Export ZIP**               | Download everything as a ZIP archive                        |
 | **PNG N×** / **PNG 1×** buttons | Save a single sprite as PNG at current zoom (label updates live) or at native 1 px per sprite pixel |
+| Hover over sprite canvas    | Pixel inspector tooltip: coordinates, `0xRRRR` hex, `rgb(r,g,b)` and colour swatch              |
 | Font colour picker           | Change the glyph foreground colour for a loaded font        |
 | Font text input              | Type preview text to render the font at current zoom        |
 

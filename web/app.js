@@ -263,7 +263,8 @@ function renderSprites() {
 
         animWrap.appendChild(animCtrl);
         card.appendChild(animWrap);
-        setupAnim(base, frames, animCanvas, fpsInput, playBtn);
+        const getCurrentFrame = setupAnim(base, frames, animCanvas, fpsInput, playBtn);
+        attachPixelInspector(animCanvas, getCurrentFrame);
 
         // ── strip or individual frames ───────────────────────────────────────
         if (useStrip) {
@@ -358,6 +359,7 @@ function drawSprite(s, z, grid) {
     drawBg(ctx, s.width, s.height, z);
     pixelDraw(ctx, s.data, s.width, s.height, z);
     if (grid) gridDraw(ctx, s.width, s.height, z);
+    attachPixelInspector(canvas, s);
     return canvas;
 }
 
@@ -378,6 +380,56 @@ function drawStrip(frames, z, grid) {
         ctx.fillText(`#${i}`, offX + 2, h * z + 12);
     });
     return canvas;
+}
+
+// ─── Pixel hover inspector ───────────────────────────────────────────────────
+const pxTooltip = document.getElementById('px-tooltip');
+
+// sprite can be an object or a zero-arg function that returns the current sprite
+function attachPixelInspector(canvas, spriteOrGetter) {
+    const getSprite = typeof spriteOrGetter === 'function' ? spriteOrGetter : () => spriteOrGetter;
+    canvas.addEventListener('mousemove', e => {
+        if (!document.getElementById('inspector').checked) {
+            pxTooltip.style.display = 'none';
+            return;
+        }
+        const sprite = getSprite();
+        const z = getZoom();
+        const rect = canvas.getBoundingClientRect();
+        const px = Math.floor((e.clientX - rect.left) / z);
+        const py = Math.floor((e.clientY - rect.top)  / z);
+        if (px < 0 || py < 0 || px >= sprite.width || py >= sprite.height) {
+            pxTooltip.style.display = 'none';
+            return;
+        }
+        const v = sprite.data[py * sprite.width + px];
+        let html;
+        if (v === 0xFEFE || v === undefined) {
+            html = `<b>${px}, ${py}</b> &nbsp; transparent`;
+        } else {
+            const r = ((v >> 11) & 31) << 3;
+            const g = ((v >> 5)  & 63) << 2;
+            const b =  (v & 31)        << 3;
+            const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+            html = `<span class="px-swatch" style="background:${hex}"></span>` +
+                   `<b>${px}, ${py}</b> &nbsp; ` +
+                   `0x${v.toString(16).toUpperCase().padStart(4,'0')} &nbsp; ` +
+                   `rgb(${r},${g},${b})`;
+        }
+        pxTooltip.innerHTML = html;
+        pxTooltip.style.display = 'block';
+        // Default: above-right of cursor (eye is already there while hovering).
+        // Fall back to below if too close to top; flip left if too close to right edge.
+        const tw = pxTooltip.offsetWidth, th = pxTooltip.offsetHeight;
+        const margin = 12;
+        let tx = e.clientX + margin;
+        let ty = e.clientY - th - margin;
+        if (ty < 4)                          ty = e.clientY + margin; // near top → go below
+        if (tx + tw > window.innerWidth - 4) tx = e.clientX - tw - margin; // near right → go left
+        pxTooltip.style.left = tx + 'px';
+        pxTooltip.style.top  = ty + 'px';
+    });
+    canvas.addEventListener('mouseleave', () => { pxTooltip.style.display = 'none'; });
 }
 
 function downloadCanvas(canvas, name) {
@@ -431,6 +483,8 @@ function setupAnim(baseName, frames, canvas, fpsEl, playBtn) {
     fpsEl.addEventListener('input', () => {
         if (playing) { clearInterval(timerId); schedule(); }
     });
+
+    return () => frames[frameIdx]; // getter for the pixel inspector
 }
 
 document.getElementById('zoom').addEventListener('input', renderSprites);
