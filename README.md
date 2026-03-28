@@ -4,6 +4,7 @@
 </h1>
 
 [![Deploy to GitHub Pages](https://github.com/aschoelzhorn/spriteanvil/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/aschoelzhorn/spriteanvil/actions/workflows/deploy-pages.yml)
+[![License](https://img.shields.io/github/license/aschoelzhorn/clockwise-esphome)](LICENSE)
 
 **[Live demo → https://aschoelzhorn.github.io/spriteanvil](https://aschoelzhorn.github.io/spriteanvil)**
 
@@ -14,29 +15,29 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 
 ## Screenshots
 
-| Sprites & Zoom | Animation Strip |
-|:---:|:---:|
+|                Sprites & Zoom                |                  Animation Strip                  |
+|:--------------------------------------------:|:-------------------------------------------------:|
 | ![Sprites view](docs/screenshot-sprites.png) | ![Animation strip](docs/screenshot-animation.gif) |
 
-| Font Charmap & Preview |
-|:---:|
+|          Font Charmap & Preview          |
+|:----------------------------------------:|
 | ![Fonts view](docs/screenshot-fonts.png) |
 
 ---
 
 ## Features
 
-| | |
-|---|---|
-| **Parse** | Drag & drop or paste `.h` files containing `uint16_t` / `unsigned short` C++ arrays |
-| **Render** | RGB565 → RGB888 canvas preview with zoom (2–64 px) and optional pixel grid |
-| **Transparency** | Checkerboard pattern *or* a custom solid colour for transparent pixels (`0xFEFE`) |
-| **Animation** | Multi-frame arrays play as live animation — ▶/⏸ toggle + per-animation FPS slider |
-| **Strip view** | Animation frames shown as a single side-by-side canvas or as individual canvases |
-| **Validation** | Per-sprite ✅/❌ pixel-count check; ⚠️ warning when no SIZE array is found |
-| **Multi-file** | Load multiple `.h` files — prompted to **Add** or **Replace** existing sprites |
-| **Export ZIP** | Original source files + per-sprite split `.h` + `.png` preview + root `assets.h` |
-| **Fonts** | Parse and preview Adafruit GFX font files — glyph charmap + live text preview with colour picker |
+|                  |                                                                                                  |
+|------------------|--------------------------------------------------------------------------------------------------|
+| **Parse**        | Drag & drop or paste `.h` files containing `uint16_t` / `unsigned short` C++ arrays              |
+| **Render**       | RGB565 → RGB888 canvas preview with zoom (2–64 px) and optional pixel grid                       |
+| **Transparency** | Checkerboard pattern *or* a custom solid colour for transparent pixels (`0xFEFE`)                |
+| **Animation**    | Multi-frame arrays play as live animation — ▶/⏸ toggle + per-animation FPS slider                |
+| **Strip view**   | Animation frames shown as a single side-by-side canvas or as individual canvases                 |
+| **Validation**   | Per-sprite ✅/❌ pixel-count check; ⚠️ warning when no SIZE array is found                       |
+| **Multi-file**   | Load multiple `.h` files — prompted to **Add** or **Replace** existing sprites                   |
+| **Export ZIP**   | Original source files + per-sprite split `.h` + `.png` preview + root `assets.h`                 |
+| **Fonts**        | Parse and preview Adafruit GFX font files — glyph charmap + live text preview with colour picker |
 
 ---
 
@@ -85,6 +86,7 @@ const uint16_t _PACMAN_CONST [][25] PROGMEM = {
 
 `0xFEFE` (or the symbol `TRANSPARENT`) is treated as transparent.  
 Use the **BG** selector to choose how transparent pixels are displayed:
+
 - **Checkerboard** — grey checker pattern (Photoshop-style)
 - **Solid color** — fill with any colour (useful for sprites that are hard to see on a checker)
 
@@ -97,29 +99,6 @@ const byte MY_SPRITE_SIZE[2] = {width, height};  // uppercase or lowercase, eith
 ```
 
 If no SIZE array is found the validation list shows a **⚠️ no SIZE defined** warning. The tool will still attempt to render the image by assuming a square layout.
-
----
-
-## Hosting on GitHub
-
-### 1. Create the repository
-
-Create a new **public** repository named `spriteanvil` on GitHub, then push:
-
-```bash
-git remote add origin https://github.com/aschoelzhorn/spriteanvil.git
-git add .
-git commit -m "Initial commit"
-git push -u origin main
-```
-
-### 2. Enable GitHub Pages
-
-1. Go to **Settings → Pages** in your repository
-2. Under **Source**, select **GitHub Actions**
-3. The `Deploy to GitHub Pages` workflow will run automatically on every push to `main`
-
-Your site will be live at **https://aschoelzhorn.github.io/spriteanvil**
 
 ---
 
@@ -165,6 +144,7 @@ const GFXfont MyFont PROGMEM = {
 ```
 
 Once loaded, each font is shown in a **Fonts** section below the sprites with:
+
 - A **glyph charmap** — every character in the font rendered at the current zoom
 - A **live text preview** — type any string to see it rendered pixel-accurately
 - A **colour picker** to change the glyph foreground colour
@@ -191,17 +171,35 @@ Split `.h` files preserve the original declaration style — `uint16_t` vs `unsi
 
 ## Controls Reference
 
-| Control | Description |
-|---|---|
-| Drag & drop / click dropzone | Load a `.h` file |
-| Paste + **Parse** button | Parse code pasted into the text area |
-| **Zoom** slider | 2–64 px per pixel |
-| **Grid** checkbox | Pixel grid overlay (auto-hidden below 4 px zoom) |
-| **Frames as strip** checkbox | Show animation frames in one canvas or individually |
-| **BG** selector | Checkerboard or solid colour for transparent pixels |
-| Colour picker | Transparent pixel fill colour (visible in Solid color mode) |
-| ▶ / **⏸** button | Play / pause animation per sprite group |
-| **FPS** slider | Animation speed 1–30 fps per sprite group |
-| **Export ZIP** | Download everything as a ZIP archive |
-| Font colour picker | Change the glyph foreground colour for a loaded font |
-| Font text input | Type preview text to render the font at current zoom |
+| Control                      | Description                                                 |
+|------------------------------|-------------------------------------------------------------|
+| Drag & drop / click dropzone | Load a `.h` file                                            |
+| Paste + **Parse** button     | Parse code pasted into the text area                        |
+| **Zoom** slider              | 2–64 px per pixel                                           |
+| **Grid** checkbox            | Pixel grid overlay (auto-hidden below 4 px zoom)            |
+| **Frames as strip** checkbox | Show animation frames in one canvas or individually         |
+| **BG** selector              | Checkerboard or solid colour for transparent pixels         |
+| Colour picker                | Transparent pixel fill colour (visible in Solid color mode) |
+| ▶ / **⏸** button             | Play / pause animation per sprite group                     |
+| **FPS** slider               | Animation speed 1–30 fps per sprite group                   |
+| **Export ZIP**               | Download everything as a ZIP archive                        |
+| Font colour picker           | Change the glyph foreground colour for a loaded font        |
+| Font text input              | Type preview text to render the font at current zoom        |
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
