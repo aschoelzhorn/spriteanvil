@@ -220,14 +220,16 @@ function renderSprites() {
         : singles.push(s));
 
     singles.forEach(s => {
-        const card = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
+        const { card, zoomBtn, nativeBtn } = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
         card.appendChild(drawSprite(s, z, grid));
+        zoomBtn.onclick   = () => downloadCanvas(drawSprite(s, getZoom(), false), s.name);
+        nativeBtn.onclick = () => downloadCanvas(drawSprite(s, 1, false), s.name);
         container.appendChild(card);
     });
 
     Object.entries(frameGroups).forEach(([base, frames]) => {
         const { width: w, height: h } = frames[0];
-        const card = mkCard(
+        const { card, zoomBtn, nativeBtn } = mkCard(
             `${base} <span class="dim">${frames.length} frames &times; ${w}&times;${h}</span>`);
 
         // ── animated preview ─────────────────────────────────────────────────
@@ -278,6 +280,8 @@ function renderSprites() {
             });
             card.appendChild(row);
         }
+        zoomBtn.onclick   = () => downloadCanvas(drawStrip(frames, getZoom(), false), base);
+        nativeBtn.onclick = () => downloadCanvas(drawStrip(frames, 1, false), base);
         container.appendChild(card);
     });
     renderFonts();
@@ -288,9 +292,26 @@ function mkCard(labelHtml) {
     card.className = 'sprite-card';
     const lbl = document.createElement('div');
     lbl.className = 'sprite-label';
-    lbl.innerHTML = labelHtml;
+    const textSpan = document.createElement('span');
+    textSpan.className = 'label-text';
+    textSpan.innerHTML = labelHtml;
+    lbl.appendChild(textSpan);
+    const btns = document.createElement('div');
+    btns.className = 'save-png-btns';
+    const z = getZoom();
+    const zoomBtn = document.createElement('button');
+    zoomBtn.className = 'save-png-btn';
+    zoomBtn.textContent = `PNG ${z}×`;
+    zoomBtn.title = `Save PNG at current zoom (${z}× — ${z} screen pixels per sprite pixel)`;
+    const nativeBtn = document.createElement('button');
+    nativeBtn.className = 'save-png-btn';
+    nativeBtn.textContent = 'PNG 1×';
+    nativeBtn.title = 'Save PNG at native size (1 screen pixel per sprite pixel)';
+    btns.appendChild(zoomBtn);
+    btns.appendChild(nativeBtn);
+    lbl.appendChild(btns);
     card.appendChild(lbl);
-    return card;
+    return { card, zoomBtn, nativeBtn };
 }
 
 function drawBg(ctx, w, h, z, offX = 0) {
@@ -357,6 +378,16 @@ function drawStrip(frames, z, grid) {
         ctx.fillText(`#${i}`, offX + 2, h * z + 12);
     });
     return canvas;
+}
+
+function downloadCanvas(canvas, name) {
+    canvas.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${name}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }, 'image/png');
 }
 
 // ─── Animation ────────────────────────────────────────────────────────────────

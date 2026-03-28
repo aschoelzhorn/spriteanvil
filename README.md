@@ -38,6 +38,7 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 | **Validation**    | Per-sprite ✅/❌ pixel-count check; ⚠️ warning when no SIZE array is found                          |
 | **Multi-file**    | Select or drop multiple `.h` files / a whole folder — prompted once to **Add** or **Replace**, then all files are loaded in batch |
 | **Export ZIP**    | Original source files + per-sprite split `.h` + `.png` preview + root `assets.h`                    |
+| **Save PNG**      | Per-sprite **PNG N×** (current zoom) and **PNG 1×** (native size) buttons on every sprite card      |
 | **Fonts**         | Parse and preview Adafruit GFX font files — glyph charmap + live text preview with colour picker    |
 
 ---
@@ -207,6 +208,7 @@ Split `.h` files preserve the original declaration style — `uint16_t` vs `unsi
 | ▶ / **⏸** button             | Play / pause animation per sprite group                     |
 | **FPS** slider               | Animation speed 1–30 fps per sprite group                   |
 | **Export ZIP**               | Download everything as a ZIP archive                        |
+| **PNG N×** / **PNG 1×** buttons | Save a single sprite as PNG at current zoom (label updates live) or at native 1 px per sprite pixel |
 | Font colour picker           | Change the glyph foreground colour for a loaded font        |
 | Font text input              | Type preview text to render the font at current zoom        |
 
