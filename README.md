@@ -29,14 +29,14 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 
 |                   |                                                                                                     |
 |-------------------|-----------------------------------------------------------------------------------------------------|
-| **Parse**         | Drag & drop or paste `.h` files containing `uint16_t` / `unsigned short` / `unsigned char` C arrays |
+| **Parse**         | Drag & drop or paste `.h` files (select multiple, or drop a whole folder) containing `uint16_t` / `unsigned short` / `unsigned char` C arrays |
 | **Render**        | RGB565 → RGB888 canvas preview with zoom (1–64 px) and optional pixel grid                          |
 | **1-bit bitmaps** | Monochrome `unsigned char` XBM/PROGMEM bitmaps rendered as black & white (LSB-first, byte-padded)   |
 | **Transparency**  | Checkerboard pattern *or* a custom solid colour for transparent pixels (`0xFEFE`)                   |
 | **Animation**     | Multi-frame arrays play as live animation — ▶/⏸ toggle + per-animation FPS slider                   |
 | **Strip view**    | Animation frames shown as a single side-by-side canvas or as individual canvases                    |
 | **Validation**    | Per-sprite ✅/❌ pixel-count check; ⚠️ warning when no SIZE array is found                          |
-| **Multi-file**    | Load multiple `.h` files — prompted to **Add** or **Replace** existing sprites                      |
+| **Multi-file**    | Select or drop multiple `.h` files / a whole folder — prompted once to **Add** or **Replace**, then all files are loaded in batch |
 | **Export ZIP**    | Original source files + per-sprite split `.h` + `.png` preview + root `assets.h`                    |
 | **Fonts**         | Parse and preview Adafruit GFX font files — glyph charmap + live text preview with colour picker    |
 
@@ -197,7 +197,7 @@ Split `.h` files preserve the original declaration style — `uint16_t` vs `unsi
 
 | Control                      | Description                                                 |
 |------------------------------|-------------------------------------------------------------|
-| Drag & drop / click dropzone | Load a `.h` file                                            |
+| Drag & drop / click dropzone | Load one or more `.h` files, or drop an entire folder — all `.h` files are collected recursively |
 | Paste + **Parse** button     | Parse code pasted into the text area                        |
 | **Zoom** slider              | 1–64 px per pixel                                           |
 | **Grid** checkbox            | Pixel grid overlay (auto-hidden below 4 px zoom)            |

@@ -602,33 +602,75 @@ dz.ondragover  = e => { e.preventDefault(); dz.classList.add('hover'); };
 dz.ondragleave = () => dz.classList.remove('hover');
 dz.ondrop = e => {
     e.preventDefault(); dz.classList.remove('hover');
-    handleFile(e.dataTransfer.files[0]);
+    collectDroppedFiles(e.dataTransfer.items).then(handleFiles);
 };
 dz.onclick = () => document.getElementById('fileInput').click();
 
 document.getElementById('fileInput').addEventListener('change', e => {
-    handleFile(e.target.files[0]);
+    handleFiles([...e.target.files]);
     e.target.value = '';
 });
 
-function handleFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-        const code = reader.result;
-        document.getElementById('code').value = code;
-        if (sprites.length > 0) {
-            const ok = confirm(
-                `${sprites.length} sprite(s) already loaded.\n\n` +
-                `OK     → Add sprites from "${file.name}"\n` +
-                `Cancel → Replace everything`
-            );
-            parseCode(code, file.name, ok);
-        } else {
-            parseCode(code, file.name, false);
+// Recursively collect all .h files from a DataTransferItemList.
+// Handles plain files, multiple files, and folder drops (via webkitGetAsEntry).
+async function collectDroppedFiles(items) {
+    const files = [];
+
+    async function readDirEntries(reader) {
+        const all = [];
+        let batch;
+        do {
+            batch = await new Promise(res => reader.readEntries(res));
+            all.push(...batch);
+        } while (batch.length > 0);
+        return all;
+    }
+
+    async function readEntry(entry) {
+        if (entry.isFile) {
+            if (entry.name.endsWith('.h')) {
+                const file = await new Promise(res => entry.file(res));
+                files.push(file);
+            }
+        } else if (entry.isDirectory) {
+            const entries = await readDirEntries(entry.createReader());
+            for (const child of entries) await readEntry(child);
         }
-    };
-    reader.readAsText(file);
+    }
+
+    for (const item of items) {
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        if (entry) {
+            await readEntry(entry);
+        } else if (item.kind === 'file') {
+            const f = item.getAsFile();
+            if (f && f.name.endsWith('.h')) files.push(f);
+        }
+    }
+    return files;
+}
+
+async function handleFiles(files) {
+    files = files.filter(f => f.name.endsWith('.h'));
+    if (!files.length) return;
+
+    // Ask once whether to add to existing sprites or replace them all
+    let merge = false;
+    if (sprites.length > 0) {
+        merge = confirm(
+            `${sprites.length} sprite(s) already loaded.\n\n` +
+            `OK     → Add ${files.length} file(s)\n` +
+            `Cancel → Replace everything`
+        );
+    }
+
+    for (let i = 0; i < files.length; i++) {
+        const code = await files[i].text();
+        // Show the first file in the textarea (paste workflow); subsequent files
+        // are loaded silently so the last single-file experience is unchanged.
+        if (i === 0) document.getElementById('code').value = code;
+        parseCode(code, files[i].name, i === 0 ? merge : true);
+    }
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
