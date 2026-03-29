@@ -29,12 +29,12 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 
 |                   |                                                                                                     |
 |-------------------|-----------------------------------------------------------------------------------------------------|
-| **Parse**         | Drag & drop or paste `.h` files (select multiple, or drop a whole folder) containing `uint16_t` / `unsigned short` / `unsigned char` C arrays |
+| **Parse**         | Drag & drop or paste `.h` **or `.c`** files (select multiple, or drop a whole folder) containing `uint16_t` / `unsigned short` / `unsigned char` / `uint32_t` (ARGB/ABGR/ARGB32) C arrays |
 | **Tabs**          | **Sprites** and **Fonts** tabs keep the two workflows separate; controls and Export ZIP adapt per tab |
-| **Render**        | RGB565 → RGB888 canvas preview with zoom (1–64 px) and optional pixel grid                          |
+| **Render**        | RGB565 → RGB888 canvas preview with zoom (1–64 px) and optional pixel grid; `uint32_t` ARGB/ARGB32 arrays are auto-converted to RGB565 |
 | **Pixel inspector** | Hover over any sprite canvas to see pixel coordinates, RGB565 hex value, and decoded RGB colour  |
 | **1-bit bitmaps** | Monochrome `unsigned char` XBM/PROGMEM bitmaps rendered with per-sprite **FG** and **BG** color pickers (with transparent-BG toggle) |
-| **Transparency**  | Checkerboard pattern *or* a custom solid colour for transparent pixels (`0xFEFE`)                   |
+| **Transparency**  | Checkerboard pattern *or* a custom solid colour for transparent pixels (`0xFEFE` or alpha=0 in ARGB32)                   |
 | **Animation**     | Multi-frame arrays play as live animation — ▶/⏸ toggle + per-animation FPS slider                   |
 | **Strip view**    | Animation frames shown as a single side-by-side canvas or as individual canvases                    |
 | **Validation**    | Per-sprite ✅/❌ pixel-count check; ⚠️ warning when no SIZE array is found                          |
@@ -87,11 +87,17 @@ static const uint16_t logo_bits [] PROGMEM = { … };
 #define icon_height 45
 static const unsigned char steam_bits [] PROGMEM = { 0x00, 0xf8, … };
 
-// 5. Named colour constants resolved automatically
+// 5. 32-bit ARGB/ABGR/ARGB32 arrays (e.g. Piskel export, GIMP)
+//    Alpha=0 is treated as transparent; ABGR (Piskel) and ARGB are auto-converted to RGB565
+const uint32_t mushroom2_data[361] = {
+    0xFF000000, 0xFF111111, 0x00000000, // ...
+};
+
+// 6. Named colour constants resolved automatically
 const unsigned short M_RED = 0xF801;
 const unsigned short TRANSPARENT = 0xFEFE;
 
-// 6. 2-D frame animation array
+// 7. 2-D frame animation array
 const uint16_t _PACMAN_CONST [][25] PROGMEM = {
     { /* frame 0 */ … },
     { /* frame 1 */ … }
@@ -108,7 +114,7 @@ The parser determines width × height using the first matching strategy:
 
 ### Transparent pixels
 
-`0xFEFE` (or the symbol `TRANSPARENT`) is treated as transparent.  
+`0xFEFE` (or the symbol `TRANSPARENT`) is treated as transparent. For `uint32_t` ARGB arrays, alpha=0 is also treated as transparent.
 Use the **BG** selector to choose how transparent pixels are displayed:
 
 - **Checkerboard** — grey checker pattern (Photoshop-style)

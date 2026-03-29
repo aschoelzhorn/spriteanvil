@@ -1,4 +1,3 @@
-
 // ─── State ────────────────────────────────────────────────────────────────────
 let sprites = [];
 let sizes = {};
@@ -90,47 +89,83 @@ function parseCode(code, filename, merge) {
         return null;
     };
 
-    // 3. 2-D frame arrays  const uint16_t NAME [][N] PROGMEM = { {…},{…} };
+    // 3. 2-D frame arrays: support uint16_t, unsigned short, and uint32_t
     const handled2D = new Set();
-    const re2D = /const\s+(?:unsigned\s+short|uint16_t)\s+(\w+)\s*\[\s*\]\s*\[(\d+)\][^;=]*=\s*\{/g;
+    const re2D = /const\s+(unsigned\s+short|uint16_t|uint32_t)\s+(\w+)\s*\[\s*\d*\s*\]\s*\[(\d+)\][^;=]*=\s*\{/g;
     let m2D;
     while ((m2D = re2D.exec(code)) !== null) {
-        const name = m2D[1];
-        const framePixels = +m2D[2];
+        const origType = m2D[1];
+        const name = m2D[2];
+        const framePixels = +m2D[3];
         const body = extractBracedContent(code, m2D.index + m2D[0].length - 1);
         if (!body) continue;
         const se = sizes[name.toLowerCase()] || resolveDefines(name);
         const fw = se ? se.w : Math.round(Math.sqrt(framePixels));
         const fh = se ? se.h : Math.round(framePixels / Math.max(1, fw));
         [...body.matchAll(/\{([^}]*)\}/g)].forEach((fm, i) => {
+            let data = parseValues(fm[1].replace(/\/\/.*$/gm, ''));
+            let type = origType;
+            if (origType === 'uint32_t') {
+                // Piskel and many tools export ABGR, so swap red and blue
+                data = data.map(v => {
+                    if (typeof v === 'number') {
+                        if (v <= 0xFFFF) return v;
+                        let a = (v >>> 24) & 0xFF;
+                        let b = (v >>> 16) & 0xFF;
+                        let g = (v >>> 8) & 0xFF;
+                        let r = v & 0xFF;
+                        if (a === 0) return 0xFEFE;
+                        return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+                    }
+                    return v;
+                });
+                type = 'uint16_t';
+            }
             sprites.push({
                 name: `${name}_frame${i}`, baseName: name, frameIndex: i,
-                data: parseValues(fm[1].replace(/\/\/.*$/gm, '')),
+                data,
                 width: fw, height: fh, isFrame: true,
-                sizeExplicit: !!se, origType: 'uint16_t', useProgmem: true,
+                sizeExplicit: !!se, origType: type, useProgmem: true,
                 origSizeDecl: se ? se.origDecl : null
             });
         });
         handled2D.add(name);
     }
 
-    // 4. 1-D arrays  const unsigned short/uint16_t NAME[N] or NAME[] PROGMEM? = {…}
+    // 4. 1-D arrays  const unsigned short/uint16_t/uint32_t NAME[N] or NAME[] PROGMEM? = {…}
     //    [^=\[] after ] blocks matching 2-D [][N] patterns
-    const re1D = /const\s+((unsigned\s+short)|(uint16_t))\s+(\w+)\s*\[[\s\d]*\]([^=\[]*)=\s*\{([\s\S]*?)\}/g;
+    const re1D = /const\s+((unsigned\s+short)|(uint16_t)|(uint32_t))\s+(\w+)\s*\[[\s\d]*\]([^=\[]*)=\s*\{([\s\S]*?)\}/g;
     for (const m of code.matchAll(re1D)) {
-        const origType = m[2] ? 'unsigned short' : 'uint16_t';
-        const name = m[4];
+        let origType = m[2] ? 'unsigned short' : (m[3] ? 'uint16_t' : (m[4] ? 'uint32_t' : ''));
+        const name = m[5];
         if (/^.+_size$/i.test(name)) continue;
         if (handled2D.has(name)) continue;
-        const raw = m[6].replace(/\/\/.*$/gm, '');
-        const data = parseValues(raw);
+        const raw = m[7].replace(/\/\/.*$/gm, '');
+        let data = parseValues(raw);
+        // If uint32_t, convert ARGB/RGBA/0xAARRGGBB/0xRRGGBBAA to RGB565
+        if (origType === 'uint32_t') {
+            // Piskel and many tools export ABGR, so swap red and blue
+            data = data.map(v => {
+                if (typeof v === 'number') {
+                    if (v <= 0xFFFF) return v;
+                    let a = (v >>> 24) & 0xFF;
+                    let b = (v >>> 16) & 0xFF;
+                    let g = (v >>> 8) & 0xFF;
+                    let r = v & 0xFF;
+                    if (a === 0) return 0xFEFE;
+                    return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+                }
+                return v;
+            });
+            origType = 'uint16_t'; // treat as RGB565 for downstream
+        }
         if (!data.length) continue;
         const se = sizes[name.toLowerCase()] || resolveDefines(name);
         const w = se ? se.w : Math.round(Math.sqrt(data.length));
         const h = se ? se.h : Math.round(data.length / Math.max(1, w));
         sprites.push({
             name, data, width: w, height: h, isFrame: false,
-            sizeExplicit: !!se, origType, useProgmem: /\bPROGMEM\b/.test(m[5]),
+            sizeExplicit: !!se, origType, useProgmem: /\bPROGMEM\b/.test(m[6]),
             origSizeDecl: se ? se.origDecl : null
         });
     }
@@ -323,23 +358,35 @@ function renderSprites() {
     container.innerHTML = '';
 
     const frameGroups = {}, singles = [];
-    sprites.forEach(s => s.isFrame
-        ? ((frameGroups[s.baseName] = frameGroups[s.baseName] || []).push(s))
-        : singles.push(s));
+    sprites.forEach(s => {
+        if (s.isFrame) {
+            (frameGroups[s.baseName] = frameGroups[s.baseName] || []).push(s);
+        } else {
+            singles.push(s);
+        }
+    });
+    // Move any 'animated' group with only one frame to singles
+    Object.entries(frameGroups).forEach(([base, frames]) => {
+        if (frames.length === 1) {
+            singles.push(frames[0]);
+            delete frameGroups[base];
+        }
+    });
 
     singles.forEach(s => {
-        const { card, zoomBtn, nativeBtn } = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
+        const { card, zoomBtn, nativeBtn, exportBtn } = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
         const canvas = drawSprite(s, z, grid);
         card.appendChild(canvas);
         if (s.isMono) card.appendChild(mkMonoPickers(s, canvas));
-        zoomBtn.onclick   = () => downloadCanvas(drawSprite(s, getZoom(), false), s.name);
+        zoomBtn.onclick   = () => downloadCanvas(drawSprite(s, getZoom(), false), s.name, getZoom());
         nativeBtn.onclick = () => downloadCanvas(drawSprite(s, 1, false), s.name);
+        exportBtn.onclick = () => exportSpriteHeader(s);
         container.appendChild(card);
     });
 
     Object.entries(frameGroups).forEach(([base, frames]) => {
         const { width: w, height: h } = frames[0];
-        const { card, zoomBtn, nativeBtn } = mkCard(
+        const { card, zoomBtn, nativeBtn, exportBtn } = mkCard(
             `${base} <span class="dim">${frames.length} frames &times; ${w}&times;${h}</span>`);
 
         // ── animated preview ─────────────────────────────────────────────────
@@ -377,7 +424,7 @@ function renderSprites() {
         attachPixelInspector(animCanvas, getCurrentFrame);
 
         // ── strip or individual frames ───────────────────────────────────────
-        if (useStrip) {
+        if (useStrip && frames.length > 1) {
             card.appendChild(drawStrip(frames, z, grid));
         } else {
             const row = document.createElement('div');
@@ -387,14 +434,100 @@ function renderSprites() {
                 wrap.className = 'frame-wrap';
                 wrap.innerHTML = `<div class="frame-num">Frame ${i}</div>`;
                 wrap.appendChild(drawSprite(f, z, grid));
+                // Add per-frame PNG download button
+                const framePngBtn = document.createElement('button');
+                framePngBtn.className = 'save-png-btn';
+                framePngBtn.textContent = `PNG ${z}×`;
+                framePngBtn.title = `Save Frame ${i} as PNG at current zoom (${z}×)`;
+                framePngBtn.onclick = () => downloadCanvas(drawSprite(f, z, false), `${base}_frame${i}`, z);
+                wrap.appendChild(framePngBtn);
                 row.appendChild(wrap);
             });
             card.appendChild(row);
         }
-        zoomBtn.onclick   = () => downloadCanvas(drawStrip(frames, getZoom(), false), base);
-        nativeBtn.onclick = () => downloadCanvas(drawStrip(frames, 1, false), base);
+
+        // Add 'Save all frames as PNGs (ZIP)' buttons if more than one frame
+        if (frames.length > 1) {
+            // Use the same JSZip logic as exportZip, but only for this group and zoom
+            async function zipAllFramesGroup(frames, base, z) {
+                const zip = new JSZip();
+                for (let i = 0; i < frames.length; i++) {
+                    const canvas = drawSprite(frames[i], z, false);
+                    // eslint-disable-next-line no-await-in-loop
+                    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+                    zip.file(`${base}_frame${i}_${z}x.png`, blob);
+                }
+                const out = await zip.generateAsync({ type: 'blob' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(out);
+                a.download = `${base}_frames_${z}x.zip`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            }
+            // Button for current zoom
+            const allFramesBtnZ = document.createElement('button');
+            allFramesBtnZ.className = 'save-png-btn';
+            allFramesBtnZ.textContent = `Save all frames as PNGs (ZIP)`;
+            allFramesBtnZ.title = `Download all frames as PNGs at current zoom (${z}×) in a ZIP`;
+            allFramesBtnZ.onclick = () => zipAllFramesGroup(frames, base, z);
+            card.appendChild(allFramesBtnZ);
+            // Button for native (1x)
+            const allFramesBtn1 = document.createElement('button');
+            allFramesBtn1.className = 'save-png-btn';
+            allFramesBtn1.textContent = `Save all frames as PNGs (ZIP, 1x)`;
+            allFramesBtn1.title = `Download all frames as PNGs at native size (1x) in a ZIP`;
+            allFramesBtn1.onclick = () => zipAllFramesGroup(frames, base, 1);
+            card.appendChild(allFramesBtn1);
+        }
+
+        // Disable APNG export button for now
+        zoomBtn.style.display = 'none';
+        nativeBtn.style.display = 'none';
+
+        // Add Export RGB565 .h for animated (2D array)
+        exportBtn.onclick = () => exportAnimatedHeader(base, frames);
+
         container.appendChild(card);
     });
+    // Export a 2D array (animated sprite group) as a C header file (RGB565 array)
+    function exportAnimatedHeader(baseName, frames) {
+        if (!frames.length) return;
+        const w = frames[0].width, h = frames[0].height, n = frames.length;
+        const arrName = baseName.replace(/\W/g, '_');
+        let lines = [];
+        lines.push(`#pragma once`);
+        lines.push(`// Animated Sprite: ${baseName} (${n} frames, ${w}x${h})`);
+        lines.push(`// Format: RGB565, ${n}x${w}x${h}`);
+        lines.push("");
+        lines.push(`const uint16_t ${arrName}[${n}][${w * h}] = {`);
+        for (let i = 0; i < n; i++) {
+            lines.push(`    { // Frame ${i}`);
+            let row = '';
+            for (let y = 0; y < h; y++) {
+                row += '        ';
+                for (let x = 0; x < w; x++) {
+                    const v = frames[i].data[y * w + x];
+                    row += `0x${(v === 0xFEFE || v === undefined ? 0 : v).toString(16).toUpperCase().padStart(4, '0')}`;
+                    if (x < w * 1 - 1 || y < h - 1) row += ', ';
+                }
+                row += '\n';
+            }
+            lines.push(row + '    },');
+        }
+        lines.push('};');
+        // Always include a size array if width/height are known
+        if (w && h) {
+            lines.push(`const byte ${arrName}_size[3] = {${n}, ${w}, ${h}};`);
+        }
+        lines.push('');
+        const content = lines.join('\n');
+        const blob = new Blob([content], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${arrName}.h`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
     renderFonts();
     updateTabCounts();
 }
@@ -421,9 +554,15 @@ function mkCard(labelHtml) {
     nativeBtn.title = 'Save PNG at native size (1 screen pixel per sprite pixel)';
     btns.appendChild(zoomBtn);
     btns.appendChild(nativeBtn);
+    // Add Export RGB565 .h button
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'save-png-btn';
+    exportBtn.textContent = 'Export RGB565 .h';
+    exportBtn.title = 'Export this sprite as a C header file (RGB565 array)';
+    btns.appendChild(exportBtn);
     lbl.appendChild(btns);
     card.appendChild(lbl);
-    return { card, zoomBtn, nativeBtn };
+    return { card, zoomBtn, nativeBtn, exportBtn };
 }
 
 function drawBg(ctx, w, h, z, offX = 0, bg = null) {
@@ -544,11 +683,13 @@ function attachPixelInspector(canvas, spriteOrGetter) {
     canvas.addEventListener('mouseleave', () => { pxTooltip.style.display = 'none'; });
 }
 
-function downloadCanvas(canvas, name) {
+function downloadCanvas(canvas, name, zoom) {
     canvas.toBlob(blob => {
         const a = document.createElement('a');
+        let fname = name;
+        if (zoom && zoom > 1) fname += `_${zoom}x`;
         a.href = URL.createObjectURL(blob);
-        a.download = `${name}.png`;
+        a.download = `${fname}.png`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }, 'image/png');
@@ -1081,7 +1222,7 @@ async function collectDroppedFiles(items) {
 
     async function readEntry(entry) {
         if (entry.isFile) {
-            if (entry.name.endsWith('.h')) {
+            if (entry.name.endsWith('.h') || entry.name.endsWith('.c')) {
                 const file = await new Promise(res => entry.file(res));
                 files.push(file);
             }
@@ -1097,14 +1238,14 @@ async function collectDroppedFiles(items) {
             await readEntry(entry);
         } else if (item.kind === 'file') {
             const f = item.getAsFile();
-            if (f && f.name.endsWith('.h')) files.push(f);
+            if (f && (f.name.endsWith('.h') || f.name.endsWith('.c'))) files.push(f);
         }
     }
     return files;
 }
 
 async function handleFiles(files) {
-    files = files.filter(f => f.name.endsWith('.h'));
+    files = files.filter(f => f.name.endsWith('.h') || f.name.endsWith('.c'));
     if (!files.length) return;
 
     // On Sprites tab: prompt to add or replace sprites. On Fonts tab: always merge silently.
@@ -1199,4 +1340,39 @@ function fmtValues(data, perLine) {
     const chunks = [];
     for (let i = 0; i < vals.length; i += perLine) chunks.push(vals.slice(i, i + perLine).join(', '));
     return chunks.join(',\n    ');
+}
+
+// Export a single sprite as a C header file (RGB565 array)
+function exportSpriteHeader(sprite) {
+    const name = sprite.name.replace(/\W/g, '_');
+    const w = sprite.width, h = sprite.height;
+    const arrName = name;
+    let lines = [];
+    lines.push(`#pragma once`);
+    lines.push(`// Sprite: ${sprite.name} (${w}x${h})`);
+    lines.push(`// Format: RGB565, ${w}x${h}`);
+    lines.push("");
+    lines.push(`const uint16_t ${arrName}[${w * h}] = {`);
+    for (let y = 0; y < h; y++) {
+        let row = '    ';
+        for (let x = 0; x < w; x++) {
+            const v = sprite.data[y * w + x];
+            row += `0x${(v === 0xFEFE || v === undefined ? 0 : v).toString(16).toUpperCase().padStart(4, '0')}`;
+            if (x < w * 1 - 1 || y < h - 1) row += ', ';
+        }
+        lines.push(row);
+    }
+    lines.push('};');
+    // Always include a size array if width/height are known
+    if (w && h) {
+        lines.push(`const byte ${arrName}_size[2] = {${w}, ${h}};`);
+    }
+    lines.push('');
+    const content = lines.join('\n');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${arrName}.h`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }

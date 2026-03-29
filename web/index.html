@@ -5,7 +5,7 @@
 <title>SpriteAnvil</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="jszip.min.js"></script>
 </head>
 <body>
 
@@ -30,15 +30,19 @@
     </svg>
   </div>
   <div class="site-title-group">
-    <h1>SpriteAnvil</h1>
-    <p class="site-tagline">Viewer &amp; exporter for RGB565 sprite assets and GFX fonts &mdash; for ESP32 LED panels</p>
+    <h1 style="display:inline; margin-right:10px;">
+      <a href="https://github.com/aschoelzhorn/spriteanvil" target="_blank" rel="noopener" style="color:inherit; text-decoration:none;">
+        SpriteAnvil
+      </a>
+    </h1>
+    <span class="site-tagline">Universal C sprite/font viewer &amp; exporter: RGB565, 1-bit, <b>ARGB/ABGR32</b>, GFX fonts &mdash; for Arduino, ESP32, LED panels, and more</span>
   </div>
 </header>
 
-<div id="dropzone">Drag &amp; Drop .h files or a folder here &mdash; or click to browse</div>
-<input type="file" id="fileInput" accept=".h" multiple style="display:none">
+<div id="dropzone">Drag &amp; Drop .h or .c files (or a folder) here &mdash; or click to browse</div>
+<input type="file" id="fileInput" accept=".h,.c" multiple style="display:none">
 
-<textarea id="code" placeholder="Paste .h file contents here"></textarea>
+<textarea id="code" placeholder="Paste .h or .c file contents here"></textarea>
 
 <div class="toolbar">
   <button onclick="doParse()">Parse</button>

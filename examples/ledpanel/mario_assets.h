@@ -235,31 +235,3 @@ const uint16_t STAR[] PROGMEM = {
 	TRANSPARENT, WHITE, TRANSPARENT
 };
 const byte STAR_SIZE[2] = {3, 3};
-
-
-// const uint16_t mushroom8x8_sky[] PROGMEM = {
-//     SKY_COLOR, SKY_COLOR, M_RED, M_RED, M_RED, M_RED, SKY_COLOR, SKY_COLOR,
-//     SKY_COLOR, M_RED, M_WHITE, M_RED, M_RED, M_WHITE, M_RED, SKY_COLOR,
-//     M_RED, M_WHITE, M_RED, M_RED, M_RED, M_RED, M_WHITE, M_RED,
-//     M_RED, M_RED, M_RED, M_RED, M_RED, M_RED, M_RED, M_RED,
-//     M_RED, M_RED, M_STEM, M_STEM, M_STEM, M_STEM, M_RED, M_RED,
-//     M_RED, M_STEM, M_STEM, M_STEM, M_STEM, M_STEM, M_STEM, M_RED,
-//     SKY_COLOR, M_STEM, M_STEM, M_STEM, M_STEM, M_STEM, M_STEM, SKY_COLOR,
-//     SKY_COLOR, SKY_COLOR, M_STEM, M_STEM, M_STEM, M_STEM, SKY_COLOR, SKY_COLOR
-// };
-// const byte mushroom8x8_sky_size[2] = {8, 8};
-
-// const uint16_t mushroom10x10_sky[] PROGMEM = {
-//     SKY_COLOR, SKY_COLOR, SKY_COLOR, M_RED,   M_RED,   M_RED,   M_RED,   SKY_COLOR, SKY_COLOR, SKY_COLOR,
-//     SKY_COLOR, SKY_COLOR, M_RED,   M_WHITE, M_RED,   M_RED,   M_WHITE, M_RED,   SKY_COLOR, SKY_COLOR,
-//     SKY_COLOR, M_RED,   M_WHITE, M_RED,   M_RED,   M_RED,   M_RED,   M_WHITE, M_RED,   SKY_COLOR,
-//     M_RED,   M_WHITE, M_RED,   M_RED,   M_RED,   M_RED,   M_RED,   M_RED,   M_WHITE, M_RED,
-//     M_RED,   M_RED,   M_RED,   M_RED,   M_RED,   M_RED,   M_RED,   M_RED,   M_RED,   M_RED,
-//     M_RED,   M_RED,   M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_RED,   M_RED,
-//     M_RED,   M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_RED,
-//     SKY_COLOR, M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  SKY_COLOR,
-//     SKY_COLOR, SKY_COLOR, M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  M_STEM,  SKY_COLOR, SKY_COLOR,
-//     SKY_COLOR, SKY_COLOR, SKY_COLOR, M_STEM,  M_STEM,  M_STEM,  M_STEM,  SKY_COLOR, SKY_COLOR, SKY_COLOR
-// };
-// const byte mushroom10x10_sky_size[2] = {10, 10};
-
