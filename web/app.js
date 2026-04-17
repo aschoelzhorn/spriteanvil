@@ -7,6 +7,21 @@ let fonts = [];
 let currentTab = 'sprites';
 const animState = new Map(); // baseName → intervalId
 
+function openEditorWithSprite(sprite, suggestedName = null) {
+    const payload = {
+        name: suggestedName || sprite.name,
+        width: sprite.width,
+        height: sprite.height,
+        data: sprite.data
+    };
+    try {
+        localStorage.setItem('spriteanvil.editorPayload', JSON.stringify(payload));
+    } catch (err) {
+        console.error('Failed to store sprite payload for editor', err);
+    }
+    globalThis.open('editor.html', '_blank', 'noopener');
+}
+
 // ─── Tab switching ────────────────────────────────────────────────────────────
 function switchTab(name) {
     currentTab = name;
@@ -374,19 +389,20 @@ function renderSprites() {
     });
 
     singles.forEach(s => {
-        const { card, zoomBtn, nativeBtn, exportBtn } = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
+        const { card, zoomBtn, nativeBtn, editBtn, exportBtn } = mkCard(`${s.name} <span class="dim">${s.width}&times;${s.height}</span>`);
         const canvas = drawSprite(s, z, grid);
         card.appendChild(canvas);
         if (s.isMono) card.appendChild(mkMonoPickers(s, canvas));
         zoomBtn.onclick   = () => downloadCanvas(drawSprite(s, getZoom(), false), s.name, getZoom());
         nativeBtn.onclick = () => downloadCanvas(drawSprite(s, 1, false), s.name);
+        editBtn.onclick   = () => openEditorWithSprite(s, s.name);
         exportBtn.onclick = () => exportSpriteHeader(s);
         container.appendChild(card);
     });
 
     Object.entries(frameGroups).forEach(([base, frames]) => {
         const { width: w, height: h } = frames[0];
-        const { card, zoomBtn, nativeBtn, exportBtn } = mkCard(
+        const { card, zoomBtn, nativeBtn, editBtn, exportBtn } = mkCard(
             `${base} <span class="dim">${frames.length} frames &times; ${w}&times;${h}</span>`);
 
         // ── animated preview ─────────────────────────────────────────────────
@@ -423,9 +439,22 @@ function renderSprites() {
         const getCurrentFrame = setupAnim(base, frames, animCanvas, fpsInput, playBtn);
         attachPixelInspector(animCanvas, getCurrentFrame);
 
+        editBtn.onclick = () => openEditorWithSprite(frames[0], `${base}_frame0`);
+
         // ── strip or individual frames ───────────────────────────────────────
         if (useStrip && frames.length > 1) {
             card.appendChild(drawStrip(frames, z, grid));
+            const stripEditRow = document.createElement('div');
+            stripEditRow.className = 'frames-row';
+            frames.forEach((f, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'save-png-btn';
+                btn.textContent = `Edit Frame ${i}`;
+                btn.title = `Open Frame ${i} in the sprite editor`;
+                btn.onclick = () => openEditorWithSprite(f, `${base}_frame${i}`);
+                stripEditRow.appendChild(btn);
+            });
+            card.appendChild(stripEditRow);
         } else {
             const row = document.createElement('div');
             row.className = 'frames-row';
@@ -441,6 +470,12 @@ function renderSprites() {
                 framePngBtn.title = `Save Frame ${i} as PNG at current zoom (${z}×)`;
                 framePngBtn.onclick = () => downloadCanvas(drawSprite(f, z, false), `${base}_frame${i}`, z);
                 wrap.appendChild(framePngBtn);
+                const frameEditBtn = document.createElement('button');
+                frameEditBtn.className = 'save-png-btn';
+                frameEditBtn.textContent = 'Edit';
+                frameEditBtn.title = `Open Frame ${i} in the sprite editor`;
+                frameEditBtn.onclick = () => openEditorWithSprite(f, `${base}_frame${i}`);
+                wrap.appendChild(frameEditBtn);
                 row.appendChild(wrap);
             });
             card.appendChild(row);
@@ -554,6 +589,11 @@ function mkCard(labelHtml) {
     nativeBtn.title = 'Save PNG at native size (1 screen pixel per sprite pixel)';
     btns.appendChild(zoomBtn);
     btns.appendChild(nativeBtn);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'save-png-btn';
+    editBtn.textContent = 'Edit';
+    editBtn.title = 'Open this sprite in the editor';
+    btns.appendChild(editBtn);
     // Add Export RGB565 .h button
     const exportBtn = document.createElement('button');
     exportBtn.className = 'save-png-btn';
@@ -562,7 +602,7 @@ function mkCard(labelHtml) {
     btns.appendChild(exportBtn);
     lbl.appendChild(btns);
     card.appendChild(lbl);
-    return { card, zoomBtn, nativeBtn, exportBtn };
+    return { card, zoomBtn, nativeBtn, editBtn, exportBtn };
 }
 
 function drawBg(ctx, w, h, z, offX = 0, bg = null) {
