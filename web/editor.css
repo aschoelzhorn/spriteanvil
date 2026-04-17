@@ -1,0 +1,258 @@
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at 15% 20%, #1a2846, #0d1018 45%), #0d1018;
+    color: #e7edf7;
+    font-family: Arial, sans-serif;
+    padding: 18px;
+}
+
+.editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #2a3650;
+    padding-bottom: 10px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #9ac8ff;
+}
+
+.subtitle {
+    margin: 4px 0 0;
+    color: #94a7c5;
+    font-size: 0.9rem;
+}
+
+.top-link {
+    color: #9ac8ff;
+    text-decoration: none;
+    border: 1px solid #3f557d;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.top-link:hover {
+    background: #1a2438;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) 1fr;
+    gap: 14px;
+    align-items: start;
+}
+
+.panel {
+    background: #121a28;
+    border: 1px solid #2a3650;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+h2 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    color: #9ac8ff;
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 10px;
+    flex-wrap: wrap;
+}
+
+.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.82rem;
+    color: #bdcae1;
+    flex: 1;
+}
+
+.stack-label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.checkline {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+
+.tool-palette {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-inline-size: 0;
+}
+
+.tool-btn {
+    background: #1b355f;
+    border: 1px solid #3f6db0;
+    color: #d9e8ff;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+}
+
+.tool-btn:hover {
+    background: #27508f;
+}
+
+.tool-btn.active {
+    background: #66a5ff;
+    border-color: #9bc4ff;
+    color: #0b1628;
+    font-weight: 700;
+}
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    background: #0c1018;
+    color: #e7edf7;
+    border: 1px solid #2f3f5f;
+    border-radius: 6px;
+    padding: 7px;
+    font-size: 0.86rem;
+}
+
+textarea {
+    min-height: 110px;
+    resize: vertical;
+    font-family: Consolas, monospace;
+}
+
+#header-output {
+    min-height: 220px;
+}
+
+button {
+    background: #24477e;
+    color: #fff;
+    border: 1px solid #3f6db0;
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 0.84rem;
+}
+
+button:hover {
+    background: #2c5aa0;
+}
+
+button.danger {
+    background: #5f2438;
+    border-color: #8c3a56;
+}
+
+button.danger:hover {
+    background: #7a2c48;
+}
+
+.tools-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    background: #0d1520;
+    border: 1px solid #2a3650;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+}
+
+.tools-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.tool-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.78rem;
+    color: #bdcae1;
+}
+
+.canvas-wrap {
+    border: 1px solid #2f3f5f;
+    background: #080b12;
+    border-radius: 8px;
+    padding: 10px;
+    display: inline-block;
+    max-width: 100%;
+    overflow: auto;
+}
+
+#editor-canvas {
+    display: block;
+    image-rendering: pixelated;
+    border: 1px solid #1e2b43;
+}
+
+#editor-canvas.tool-pen {
+    cursor: crosshair;
+}
+
+#editor-canvas.tool-eraser {
+    cursor: cell;
+}
+
+#editor-canvas.tool-bucket {
+    cursor: pointer;
+}
+
+#editor-canvas.tool-picker {
+    cursor: copy;
+}
+
+.status {
+    margin: 10px 0;
+    min-height: 22px;
+    color: #a9bddf;
+    font-size: 0.84rem;
+}
+
+.hidden {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .two-col {
+        grid-template-columns: 1fr;
+    }
+}

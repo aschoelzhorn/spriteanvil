@@ -23,6 +23,10 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 |:----------------------------------------------:|:----------------------------------------:|
 | ![BW icons view](docs/screenshot-bw-icons.png) | ![Fonts view](docs/screenshot-fonts.png) |
 
+|             Sprite Editor              ||
+|:---------------------------------------------:|:---------------------------------------------:|
+| ![Sprite editor](docs/Screenshot-sprite-editor.png) ||
+
 ---
 
 ## Features
@@ -41,6 +45,7 @@ No install required — use it instantly in the browser via GitHub Pages, or run
 | **Multi-file**    | Select or drop multiple `.h` files / a whole folder — prompted once to **Add** or **Replace**, then all files are loaded in batch |
 | **Export ZIP**    | Original source files + per-sprite split `.h` + `.png` preview + root `assets.h`                    |
 | **Save PNG**      | Per-sprite **PNG N×** (current zoom) and **PNG 1×** (native size) buttons on every sprite card      |
+| **Sprite Editor** | Open a dedicated editor in a new tab, draw with Pen/Eraser/Bucket/Picker, and export clean sprite headers |
 | **Fonts**         | Parse and preview Adafruit GFX font files — glyph charmap + live text preview with colour picker    |
 | **Font subsetting** | Subset any loaded font to only the characters you need and download a ready-to-use `.h` file      |
 
@@ -122,6 +127,21 @@ Use the **BG** selector to choose how transparent pixels are displayed:
 
 ---
 
+## Standalone Sprite Editor
+
+Use **Open Sprite Editor** in the top toolbar, or click **Edit** on any sprite card/frame to open the editor in a new tab with sprite data preloaded.
+
+The editor is designed for quick pixel-level touchups and header generation:
+
+- **Tool bar above canvas** with Pen, Eraser, Bucket Fill, and Picker
+- **Checkerboard transparency background** aligned with the main app rendering (one checker cell per sprite pixel at active zoom)
+- **Transparent paint mode** to paint `0xFEFE` directly
+- **Smart parser** for pasted C arrays, including named constants, `TRANSPARENT`, and `_SIZE[2]` dimensions
+- **Export options**: Generate/copy/download `.h`, plus **Save PNG (zoom)** and **Save PNG (1x)**
+- **Header visibility logic**: generated header output stays hidden until generated and is auto-invalidated after edits
+
+---
+
 ## Project Structure
 
 ```
@@ -129,7 +149,10 @@ spriteanvil/
 ├── web/
 │   ├── index.html       # UI
 │   ├── app.js           # Parser, renderer, animation, export
-│   └── styles.css       # Dark-theme styles
+│   ├── styles.css       # Main app styles
+│   ├── editor.html      # Standalone sprite editor UI
+│   ├── editor.js        # Standalone editor logic (draw, parse, export)
+│   └── editor.css       # Standalone editor styles
 ├── Dockerfile           # nginx:alpine serving web/
 ├── docker-compose.yml   # Port 8080
 └── examples/

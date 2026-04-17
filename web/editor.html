@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpriteAnvil Sprite Editor</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<header class="editor-header">
+  <div>
+    <h1>Sprite Editor</h1>
+    <p class="subtitle">Create or edit RGB565 sprites and export C headers</p>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel controls-panel">
+    <h2>Sprite Setup</h2>
+    <div class="row two-col">
+      <label>Width
+        <input type="number" id="sprite-width" min="1" max="256" value="16">
+      </label>
+      <label>Height
+        <input type="number" id="sprite-height" min="1" max="256" value="16">
+      </label>
+    </div>
+    <div class="row">
+      <button id="btn-new">New Blank Sprite</button>
+    </div>
+
+    <h2>Load Existing Data</h2>
+    <div class="row two-col">
+      <label>Load Width
+        <input type="number" id="load-width" min="1" max="256" value="16">
+      </label>
+      <label>Load Height
+        <input type="number" id="load-height" min="1" max="256" value="16">
+      </label>
+    </div>
+    <label class="stack-label">Paste C values (hex/decimal), e.g. 0xF800, 0x07E0, 65535
+      <textarea id="load-values" placeholder="0xFEFE, 0xF800, 0x07E0, ..."></textarea>
+    </label>
+    <div class="row">
+      <button id="btn-load">Load Into Canvas</button>
+    </div>
+
+    <h2>Export</h2>
+    <div class="row">
+      <label>Sprite Name
+        <input type="text" id="export-name" value="my_sprite">
+      </label>
+    </div>
+    <div class="row">
+      <label class="checkline"><input type="checkbox" id="use-transparent-token" checked> Export TRANSPARENT constant/token for transparent pixels</label>
+    </div>
+    <div class="row">
+      <button id="btn-save-png-zoom">Save PNG (zoom)</button>
+      <button id="btn-save-png-1x">Save PNG (1x)</button>
+    </div>
+    <div class="row">
+      <button id="btn-generate">Generate .h</button>
+      <button id="btn-download">Download .h</button>
+      <button id="btn-copy">Copy Header</button>
+    </div>
+  </section>
+
+  <section class="panel canvas-panel">
+    <div class="tools-bar">
+      <fieldset id="tool-palette" class="tool-palette" aria-label="Tool palette">
+        <button type="button" class="tool-btn active" data-tool="pen">Pen</button>
+        <button type="button" class="tool-btn" data-tool="eraser">Eraser</button>
+        <button type="button" class="tool-btn" data-tool="bucket">Bucket</button>
+        <button type="button" class="tool-btn" data-tool="picker">Picker</button>
+      </fieldset>
+      <div class="tools-row">
+        <label class="tool-label">Zoom
+          <input type="range" id="zoom" min="6" max="40" value="18">
+        </label>
+        <label class="checkline"><input type="checkbox" id="show-grid" checked> Grid</label>
+      </div>
+      <div class="tools-row">
+        <label class="tool-label">Color
+          <input type="color" id="color-picker" value="#ff0000">
+        </label>
+        <label class="tool-label">RGB565
+          <input type="text" id="color-rgb565" value="F800" maxlength="4">
+        </label>
+        <label class="checkline"><input type="checkbox" id="use-transparent-paint"> Transp. paint</label>
+      </div>
+      <div class="tools-row">
+        <button id="btn-undo">Undo</button>
+        <button id="btn-redo">Redo</button>
+        <button id="btn-clear" class="danger">Clear</button>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="editor-canvas" width="288" height="288"></canvas>
+    </div>
+    <div id="status" class="status">Ready. Create a blank sprite or load values.</div>
+    <label id="header-wrap" class="stack-label hidden">Generated Header
+      <textarea id="header-output" readonly placeholder="Generated header text appears here"></textarea>
+    </label>
+  </section>
+</main>
+
+<script src="editor.js"></script>
+</body>
+</html>
