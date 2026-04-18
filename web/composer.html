@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpriteAnvil &mdash; Canvas Composer</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="composer.css">
+</head>
+<body>
+
+<header class="composer-header">
+  <div class="site-logo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48" width="40" height="30" aria-hidden="true">
+      <polygon points="4,16 24,16 24,26 4,32" fill="#4a9eff" opacity="0.85"/>
+      <rect x="16" y="22" width="40" height="18" rx="3" fill="#4a9eff"/>
+      <rect x="16" y="22" width="40" height="6" rx="3" fill="#7bc8ff" opacity="0.6"/>
+      <rect x="20" y="40" width="32" height="6" rx="2" fill="#2a6abf"/>
+      <rect x="28" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="34" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="40" y="26" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="28" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="34" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+      <rect x="40" y="32" width="4" height="4" fill="#fff" opacity="0.15"/>
+    </svg>
+  </div>
+  <div>
+    <h1>Canvas Composer</h1>
+    <p class="subtitle">Arrange RGB565 sprites on a fixed canvas &mdash; e.g. 64&times;64 LED panel</p>
+  </div>
+  <nav class="header-nav" aria-label="App navigation">
+    <a href="index.html">&#8592; Viewer</a>
+    <a href="editor.html" target="_blank" rel="noopener">Sprite Editor</a>
+  </nav>
+</header>
+
+<div class="composer-layout">
+
+  <!-- ─── Library panel ─────────────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">Sprite Library</div>
+    <div class="panel-body">
+
+      <div class="lib-dropzone" id="lib-dropzone">
+        <input type="file" id="lib-file-input" accept=".h,.c" multiple>
+        Drop <b>.h</b> / <b>.c</b> files here<br>
+        <span style="font-size:10px;color:#445">or <button type="button" id="lib-browse-btn" style="background:none;border:none;color:#7bf;padding:0;font-size:inherit;cursor:pointer;text-decoration:underline;">click to browse</button></span>
+      </div>
+
+      <div id="lib-sprites"></div>
+    </div>
+  </div>
+
+  <!-- ─── Composition canvas ────────────────────────────────────────────── -->
+  <div class="panel canvas-panel">
+    <div class="canvas-toolbar">
+      <label title="Canvas width in pixels">W&nbsp;<input type="number" id="canvas-w" min="1" max="512" value="64"></label>
+      <label title="Canvas height in pixels">H&nbsp;<input type="number" id="canvas-h" min="1" max="512" value="64"></label>
+      <div class="preset-btns" title="Quick canvas size presets">
+        <button class="preset-btn" onclick="setPreset(16,16)"  title="16&times;16">16&times;16</button>
+        <button class="preset-btn" onclick="setPreset(32,32)"  title="32&times;32">32&times;32</button>
+        <button class="preset-btn" onclick="setPreset(64,64)"  title="64&times;64">64&times;64</button>
+        <button class="preset-btn" onclick="setPreset(128,32)" title="128&times;32">128&times;32</button>
+        <button class="preset-btn" onclick="setPreset(128,64)" title="128&times;64">128&times;64</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <label title="Display zoom">Zoom&nbsp;<input type="range" id="zoom-slider" min="1" max="20" value="6">&nbsp;<span id="zoom-val">6</span>&times;</label>
+      <label title="Toggle pixel grid overlay"><input type="checkbox" id="grid-toggle">&nbsp;Grid</label>
+      <label title="Canvas background color">BG&nbsp;<input type="color" id="bg-color" value="#000000"></label>
+    </div>
+
+    <div class="canvas-area-wrap">
+      <canvas id="composer-canvas" title="Click a sprite to select it. Drag to reposition."></canvas>
+    </div>
+  </div>
+
+  <!-- ─── Layers panel ──────────────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">Layers</div>
+    <div class="panel-body">
+      <div id="layer-list"></div>
+    </div>
+    <div class="panel-footer">
+      <label class="export-alpha-label" title="Transparent pixels become fully transparent in the PNG instead of the background color">
+        <input type="checkbox" id="export-alpha">
+        Transparent background (PNG)
+      </label>
+      <div class="footer-btns">
+        <button id="btn-export-png" class="btn-export" title="Download the composition as a PNG image">Export PNG</button>
+        <button id="btn-save-layout" class="btn-save" title="Save layer names and coordinates as JSON">Save Layout</button>
+        <button id="btn-clear" class="btn-danger" title="Remove all layers from the canvas">Clear</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="composer.js"></script>
+</body>
+</html>

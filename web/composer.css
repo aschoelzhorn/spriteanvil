@@ -1,0 +1,339 @@
+* { box-sizing: border-box; }
+
+body {
+    background: #111;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────────────── */
+.composer-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 16px;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+    background: #111;
+}
+.composer-header h1 {
+    margin: 0;
+    font-size: 1.25em;
+    color: #7bf;
+    letter-spacing: .02em;
+}
+.composer-header .subtitle {
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: #556;
+}
+.header-nav {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+.header-nav a {
+    color: #7bf;
+    text-decoration: none;
+    font-size: 12px;
+    padding: 4px 12px;
+    border: 1px solid #2a4a6a;
+    border-radius: 4px;
+    transition: background .15s;
+}
+.header-nav a:hover { background: #1a3a5a; }
+
+/* ─── Three-panel layout ──────────────────────────────────────────────────── */
+.composer-layout {
+    display: grid;
+    grid-template-columns: 230px 1fr 240px;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ─── Generic panel ───────────────────────────────────────────────────────── */
+.panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid #222;
+}
+.panel:last-child { border-right: none; border-left: 1px solid #222; }
+
+.panel-header {
+    padding: 7px 12px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #7bf;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
+    background: #141420;
+}
+.panel-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px;
+}
+.panel-footer {
+    border-top: 1px solid #222;
+    padding: 10px;
+    flex-shrink: 0;
+    background: #111;
+}
+
+/* ─── Library panel ───────────────────────────────────────────────────────── */
+.lib-dropzone {
+    border: 2px dashed #444;
+    border-radius: 6px;
+    padding: 14px 8px;
+    text-align: center;
+    color: #556;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color .18s, color .18s;
+    user-select: none;
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
+.lib-dropzone.hover, .lib-dropzone:hover { border-color: #7bf; color: #7bf; }
+
+.lib-sprites {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.lib-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 7px;
+    background: #1a1a1a;
+    border: 1px solid #2d2d2d;
+    border-radius: 5px;
+    cursor: grab;
+    user-select: none;
+    transition: border-color .15s, background .15s;
+}
+.lib-item:active { cursor: grabbing; }
+.lib-item:hover { border-color: #4a9eff; background: #12121e; }
+
+.lib-item canvas {
+    border: 1px solid #333;
+    flex-shrink: 0;
+    image-rendering: pixelated;
+    display: block;
+    background: transparent;
+}
+.lib-item-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.lib-item-name { font-size: 11px; color: #bbb; word-break: break-all; }
+.lib-item-dim  { font-size: 10px; color: #556; }
+
+/* ─── Canvas panel ────────────────────────────────────────────────────────── */
+.canvas-panel { background: #0d0d0d; }
+
+.canvas-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    border-bottom: 1px solid #222;
+    font-size: 12px;
+    flex-shrink: 0;
+    background: #141420;
+}
+.canvas-toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.canvas-toolbar input[type=number] {
+    width: 52px;
+    background: #1e1e1e;
+    color: #ccc;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 3px 5px;
+    font-size: 12px;
+}
+.canvas-toolbar input[type=number]:focus { outline: none; border-color: #7bf; }
+.canvas-toolbar input[type=range] { width: 72px; cursor: pointer; }
+.canvas-toolbar input[type=checkbox] { cursor: pointer; }
+.canvas-toolbar input[type=color] {
+    width: 28px; height: 22px; padding: 1px 2px;
+    border: 1px solid #444; border-radius: 4px; cursor: pointer; background: none;
+}
+.toolbar-sep { width: 1px; background: #333; align-self: stretch; }
+
+.preset-btns { display: flex; gap: 3px; }
+.preset-btn {
+    background: #1e1e2e;
+    border: 1px solid #335;
+    color: #99c;
+    padding: 2px 7px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.preset-btn:hover { background: #252540; border-color: #558; color: #bbf; }
+
+.canvas-area-wrap {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    min-height: 0;
+}
+.canvas-area-wrap canvas {
+    display: block;
+    image-rendering: pixelated;
+    cursor: crosshair;
+    box-shadow: 0 0 0 1px #333, 0 4px 24px rgba(0,0,0,.6);
+}
+.canvas-area-wrap canvas.dragging { cursor: grabbing; }
+
+/* ─── Layers panel ────────────────────────────────────────────────────────── */
+.layer-list { display: flex; flex-direction: column; gap: 5px; }
+
+.layer-item {
+    padding: 6px 8px;
+    background: #1a1a1a;
+    border: 1px solid #2d2d2d;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.layer-item:hover { border-color: #444; }
+.layer-item.selected { border-color: #4a9eff; background: #12121e; }
+
+.layer-item-top {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 5px;
+}
+.layer-item canvas {
+    flex-shrink: 0;
+    image-rendering: pixelated;
+    border: 1px solid #333;
+    display: block;
+}
+.layer-item-name { flex: 1; min-width: 0; font-size: 11px; color: #bbb; word-break: break-all; }
+
+.layer-delete-btn {
+    background: none;
+    border: 1px solid #5a2a2a;
+    color: #c55;
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+.layer-delete-btn:hover { background: #3a1212; color: #f77; }
+
+.layer-xy {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #778;
+}
+.layer-xy label { display: flex; align-items: center; gap: 3px; }
+.layer-xy input[type=number] {
+    width: 50px;
+    background: #1e1e1e;
+    color: #ccc;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 11px;
+}
+.layer-xy input[type=number]:focus { outline: none; border-color: #7bf; }
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+button {
+    background: #236;
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+}
+button:hover { background: #347; }
+
+.btn-export {
+    background: #1b4e1b;
+    border: 1px solid #3a8a3a;
+    color: #adfcad;
+    padding: 8px 16px;
+    font-size: 12px;
+    flex: 1;
+}
+.btn-export:hover { background: #276027; }
+
+.btn-save {
+    background: #1b3a5a;
+    border: 1px solid #3a6aaa;
+    color: #aad4ff;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+.btn-save:hover { background: #255080; }
+
+.btn-danger {
+    background: #3a1212;
+    border: 1px solid #7a3a3a;
+    color: #f99;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+.btn-danger:hover { background: #4a1818; }
+
+/* ─── Footer controls ─────────────────────────────────────────────────────── */
+.export-alpha-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #778;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+.export-alpha-label input { cursor: pointer; }
+.footer-btns { display: flex; gap: 6px; }
+
+/* ─── Misc ────────────────────────────────────────────────────────────────── */
+.empty-hint {
+    font-size: 11px;
+    color: #445;
+    text-align: center;
+    padding: 20px 0;
+}
+
+/* Scrollbar styling */
+.panel-body::-webkit-scrollbar { width: 6px; }
+.panel-body::-webkit-scrollbar-track { background: #111; }
+.panel-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+.panel-body::-webkit-scrollbar-thumb:hover { background: #555; }
+
+.canvas-area-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+.canvas-area-wrap::-webkit-scrollbar-track { background: #0d0d0d; }
+.canvas-area-wrap::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
