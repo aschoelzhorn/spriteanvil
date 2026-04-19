@@ -3,6 +3,8 @@ let canvasW = 64;
 let canvasH = 64;
 let zoom = 6;
 let showGrid = false;
+let showCoords = false;
+let canvasBgMode = 'checker';  // 'checker' | 'color'
 let canvasBgColor = '#000000';
 let librarySprites = [];  // { name, width, height, data[] }
 let layers = [];
@@ -306,6 +308,85 @@ function drawLayerOnCtx(ctx, layer, z) {
     ctx.drawImage(off, ox * z, oy * z);
 }
 
+// ─── Rulers ───────────────────────────────────────────────────────────────────
+
+const RULER_W = 20; // Y ruler width (left side, px)
+const RULER_H = 16; // X ruler height (top side, px)
+
+function rulerStep(z) {
+    for (const n of [1, 2, 4, 5, 8, 10, 16, 20, 32, 64]) {
+        if (n * z >= 24) return n;
+    }
+    return 64;
+}
+
+function drawRulerX(ctx, count, z, step) {
+    ctx.canvas.width  = count * z;
+    ctx.canvas.height = RULER_H;
+    ctx.fillStyle = '#12121e';
+    ctx.fillRect(0, 0, ctx.canvas.width, RULER_H);
+    ctx.lineWidth = 1;
+    ctx.font = '8px monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    for (let i = 0; i <= count; i++) {
+        const px = i * z;
+        const isMajor = i % step === 0;
+        if (!isMajor && z < 4) continue;
+        ctx.strokeStyle = isMajor ? '#446688' : '#202840';
+        ctx.beginPath();
+        ctx.moveTo(px + 0.5, RULER_H - (isMajor ? 5 : 2));
+        ctx.lineTo(px + 0.5, RULER_H);
+        ctx.stroke();
+        if (isMajor && i < count) {
+            ctx.fillStyle = '#7799bb';
+            ctx.fillText(String(i), px + 2, 1);
+        }
+    }
+}
+
+function drawRulerY(ctx, count, z, step) {
+    ctx.canvas.width  = RULER_W;
+    ctx.canvas.height = count * z;
+    ctx.fillStyle = '#12121e';
+    ctx.fillRect(0, 0, RULER_W, ctx.canvas.height);
+    ctx.lineWidth = 1;
+    ctx.font = '8px monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= count; i++) {
+        const py = i * z;
+        const isMajor = i % step === 0;
+        if (!isMajor && z < 4) continue;
+        ctx.strokeStyle = isMajor ? '#446688' : '#202840';
+        ctx.beginPath();
+        ctx.moveTo(RULER_W - (isMajor ? 5 : 2), py + 0.5);
+        ctx.lineTo(RULER_W, py + 0.5);
+        ctx.stroke();
+        if (isMajor && i < count) {
+            ctx.fillStyle = '#7799bb';
+            ctx.fillText(String(i), RULER_W - 7, py + 1);
+        }
+    }
+}
+
+function drawRulers() {
+    const rx = document.getElementById('ruler-x');
+    const ry = document.getElementById('ruler-y');
+    const step = rulerStep(zoom);
+    drawRulerX(rx.getContext('2d'), canvasW, zoom, step);
+    drawRulerY(ry.getContext('2d'), canvasH, zoom, step);
+}
+
+function drawComposerCheckerboard(ctx, w, h, z) {
+    for (let py = 0; py < h; py++) {
+        for (let px = 0; px < w; px++) {
+            ctx.fillStyle = ((px + py) % 2 === 0) ? '#555' : '#888';
+            ctx.fillRect(px * z, py * z, z, z);
+        }
+    }
+}
+
 function renderComposition() {
     const canvas = getMainCanvas();
     canvas.width  = canvasW * zoom;
@@ -314,8 +395,12 @@ function renderComposition() {
     ctx.imageSmoothingEnabled = false;
 
     // Canvas background
-    ctx.fillStyle = canvasBgColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (canvasBgMode === 'checker') {
+        drawComposerCheckerboard(ctx, canvasW, canvasH, zoom);
+    } else {
+        ctx.fillStyle = canvasBgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     // Layers bottom-to-top
     for (const layer of layers) drawLayerOnCtx(ctx, layer, zoom);
@@ -346,6 +431,7 @@ function renderComposition() {
             ctx.beginPath(); ctx.moveTo(0, y * zoom); ctx.lineTo(canvas.width, y * zoom); ctx.stroke();
         }
     }
+    drawRulers();
 }
 
 // ─── Layers panel ──────────────────────────────────────────────────────────────
@@ -471,6 +557,18 @@ function initCanvasInteraction() {
     });
 
     canvas.addEventListener('mousemove', e => {
+        if (showCoords) {
+            const { px, py } = canvasPixelAt(canvas, e);
+            const tip = document.getElementById('coord-tooltip');
+            if (px >= 0 && px < canvasW && py >= 0 && py < canvasH) {
+                tip.textContent = `${px}, ${py}`;
+                tip.style.display = 'block';
+                tip.style.left = `${e.clientX + 14}px`;
+                tip.style.top  = `${e.clientY + 8}px`;
+            } else {
+                tip.style.display = 'none';
+            }
+        }
         if (!dragState) return;
         const dxPx = Math.round((e.clientX - dragState.startMouseX) / zoom);
         const dyPx = Math.round((e.clientY - dragState.startMouseY) / zoom);
@@ -485,9 +583,11 @@ function initCanvasInteraction() {
     });
 
     const endDrag = () => {
-        if (!dragState) return;
-        dragState = null;
-        canvas.classList.remove('dragging');
+        if (dragState) {
+            dragState = null;
+            canvas.classList.remove('dragging');
+        }
+        document.getElementById('coord-tooltip').style.display = 'none';
     };
     canvas.addEventListener('mouseup', endDrag);
     canvas.addEventListener('mouseleave', endDrag);
@@ -540,7 +640,12 @@ function exportPng() {
     off.width  = canvasW;
     off.height = canvasH;
     const ctx = off.getContext('2d');
-    if (!useAlpha) { ctx.fillStyle = canvasBgColor; ctx.fillRect(0, 0, canvasW, canvasH); }
+    // Export: transparent pixels become black in LED mode; use chosen solid color if set
+    if (!useAlpha) {
+        const bg = canvasBgMode === 'color' ? canvasBgColor : '#000000';
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, canvasW, canvasH);
+    }
     for (const layer of layers) compositeLayerAt1x(ctx, layer);
     off.toBlob(blob => {
         const url = URL.createObjectURL(blob);
@@ -631,10 +736,24 @@ document.addEventListener('DOMContentLoaded', () => {
         renderComposition();
     });
 
-    // Canvas background color
-    document.getElementById('bg-color').addEventListener('input', e => {
+    // Canvas background mode
+    const bgModeEl  = document.getElementById('bg-mode');
+    const bgColorEl = document.getElementById('bg-color');
+    bgColorEl.style.display = canvasBgMode === 'color' ? '' : 'none';
+    bgModeEl.addEventListener('change', e => {
+        canvasBgMode = e.target.value;
+        bgColorEl.style.display = canvasBgMode === 'color' ? '' : 'none';
+        renderComposition();
+    });
+    bgColorEl.addEventListener('input', e => {
         canvasBgColor = e.target.value;
         renderComposition();
+    });
+
+    // Coords toggle
+    document.getElementById('show-coords').addEventListener('change', e => {
+        showCoords = e.target.checked;
+        if (!showCoords) document.getElementById('coord-tooltip').style.display = 'none';
     });
 
     // Save layout

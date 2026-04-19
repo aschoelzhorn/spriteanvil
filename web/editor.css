@@ -214,6 +214,37 @@ button.danger:hover {
     overflow: auto;
 }
 
+/* Ruler layout wrapping the editor canvas */
+.ruler-outer {
+    display: inline-grid;
+    grid-template-columns: 20px auto;
+    grid-template-rows: 16px auto;
+}
+.ruler-corner {
+    background: #0c1220;
+    width: 20px;
+    height: 16px;
+}
+#ruler-x, #ruler-y {
+    display: block;
+    image-rendering: pixelated;
+}
+
+/* Coordinate hover tooltip */
+.coord-tooltip {
+    position: fixed;
+    background: rgba(8, 8, 24, 0.9);
+    color: #9ac8ff;
+    font: 11px/1 monospace;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid #2f3f5f;
+    pointer-events: none;
+    display: none;
+    z-index: 9999;
+    white-space: nowrap;
+}
+
 #editor-canvas {
     display: block;
     image-rendering: pixelated;

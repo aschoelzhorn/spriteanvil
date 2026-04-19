@@ -66,11 +66,20 @@
       <div class="toolbar-sep"></div>
       <label title="Display zoom">Zoom&nbsp;<input type="range" id="zoom-slider" min="1" max="20" value="6">&nbsp;<span id="zoom-val">6</span>&times;</label>
       <label title="Toggle pixel grid overlay"><input type="checkbox" id="grid-toggle">&nbsp;Grid</label>
-      <label title="Canvas background color">BG&nbsp;<input type="color" id="bg-color" value="#000000"></label>
+      <label title="Canvas background">BG&nbsp;<select id="bg-mode" title="Background mode">
+          <option value="checker" selected>Checker</option>
+          <option value="color">Solid</option>
+        </select>&nbsp;<input type="color" id="bg-color" value="#000000"></label>
+      <label title="Show pixel coordinates on mouse hover"><input type="checkbox" id="show-coords">&nbsp;Coords</label>
     </div>
 
     <div class="canvas-area-wrap">
-      <canvas id="composer-canvas" title="Click a sprite to select it. Drag to reposition."></canvas>
+      <div class="ruler-outer">
+        <div class="ruler-corner"></div>
+        <canvas id="ruler-x"></canvas>
+        <canvas id="ruler-y"></canvas>
+        <canvas id="composer-canvas" title="Click a sprite to select it. Drag to reposition."></canvas>
+      </div>
     </div>
   </div>
 
@@ -94,6 +103,8 @@
   </div>
 
 </div>
+
+<div id="coord-tooltip" class="coord-tooltip" aria-hidden="true"></div>
 
 <script src="composer.js"></script>
 </body>

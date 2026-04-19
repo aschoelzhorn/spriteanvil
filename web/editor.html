@@ -83,6 +83,7 @@
           <input type="range" id="zoom" min="6" max="40" value="18">
         </label>
         <label class="checkline"><input type="checkbox" id="show-grid" checked> Grid</label>
+        <label class="checkline"><input type="checkbox" id="show-coords"> Coords</label>
       </div>
       <div class="tools-row">
         <label class="tool-label">Color
@@ -100,7 +101,12 @@
       </div>
     </div>
     <div class="canvas-wrap">
-      <canvas id="editor-canvas" width="288" height="288"></canvas>
+      <div class="ruler-outer">
+        <div class="ruler-corner"></div>
+        <canvas id="ruler-x"></canvas>
+        <canvas id="ruler-y"></canvas>
+        <canvas id="editor-canvas" width="288" height="288"></canvas>
+      </div>
     </div>
     <div id="status" class="status">Ready. Create a blank sprite or load values.</div>
     <label id="header-wrap" class="stack-label hidden">Generated Header
@@ -108,6 +114,8 @@
     </label>
   </section>
 </main>
+
+<div id="coord-tooltip" class="coord-tooltip" aria-hidden="true"></div>
 
 <script src="editor.js"></script>
 </body>

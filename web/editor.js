@@ -8,6 +8,7 @@ const state = {
     tool: 'pen',
     zoom: 18,
     showGrid: true,
+    showCoords: false,
     color565: 0xF800,
     useTransparentPaint: false,
     isDrawing: false,
@@ -43,7 +44,9 @@ const el = {
     btnSavePng1x: document.getElementById('btn-save-png-1x'),
     btnGenerate: document.getElementById('btn-generate'),
     btnDownload: document.getElementById('btn-download'),
-    btnCopy: document.getElementById('btn-copy')
+    btnCopy: document.getElementById('btn-copy'),
+    showCoords: document.getElementById('show-coords'),
+    coordTooltip: document.getElementById('coord-tooltip')
 };
 
 const ctx = el.canvas.getContext('2d');
@@ -134,6 +137,76 @@ function sync565FromPicker(hex) {
     el.colorRgb565.value = rgb565ToHex(state.color565);
 }
 
+// ─── Rulers ──────────────────────────────────────────────────────────────
+
+const RULER_W = 20;
+const RULER_H = 16;
+
+function rulerStep(z) {
+    for (const n of [1, 2, 4, 5, 8, 10, 16, 20, 32, 64]) {
+        if (n * z >= 24) return n;
+    }
+    return 64;
+}
+
+function drawRulerAxisX(ctx, count, z, step) {
+    ctx.canvas.width  = count * z;
+    ctx.canvas.height = RULER_H;
+    ctx.fillStyle = '#0c1220';
+    ctx.fillRect(0, 0, ctx.canvas.width, RULER_H);
+    ctx.lineWidth = 1;
+    ctx.font = '8px monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    for (let i = 0; i <= count; i++) {
+        const px = i * z;
+        const isMajor = i % step === 0;
+        if (!isMajor && z < 4) continue;
+        ctx.strokeStyle = isMajor ? '#446688' : '#202840';
+        ctx.beginPath();
+        ctx.moveTo(px + 0.5, RULER_H - (isMajor ? 5 : 2));
+        ctx.lineTo(px + 0.5, RULER_H);
+        ctx.stroke();
+        if (isMajor && i < count) {
+            ctx.fillStyle = '#7799bb';
+            ctx.fillText(String(i), px + 2, 1);
+        }
+    }
+}
+
+function drawRulerAxisY(ctx, count, z, step) {
+    ctx.canvas.width  = RULER_W;
+    ctx.canvas.height = count * z;
+    ctx.fillStyle = '#0c1220';
+    ctx.fillRect(0, 0, RULER_W, ctx.canvas.height);
+    ctx.lineWidth = 1;
+    ctx.font = '8px monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= count; i++) {
+        const py = i * z;
+        const isMajor = i % step === 0;
+        if (!isMajor && z < 4) continue;
+        ctx.strokeStyle = isMajor ? '#446688' : '#202840';
+        ctx.beginPath();
+        ctx.moveTo(RULER_W - (isMajor ? 5 : 2), py + 0.5);
+        ctx.lineTo(RULER_W, py + 0.5);
+        ctx.stroke();
+        if (isMajor && i < count) {
+            ctx.fillStyle = '#7799bb';
+            ctx.fillText(String(i), RULER_W - 7, py + 1);
+        }
+    }
+}
+
+function drawRulers() {
+    const rx = document.getElementById('ruler-x');
+    const ry = document.getElementById('ruler-y');
+    const step = rulerStep(state.zoom);
+    drawRulerAxisX(rx.getContext('2d'), state.width,  state.zoom, step);
+    drawRulerAxisY(ry.getContext('2d'), state.height, state.zoom, step);
+}
+
 function resizeCanvas() {
     el.canvas.width = state.width * state.zoom;
     el.canvas.height = state.height * state.zoom;
@@ -189,6 +262,7 @@ function render() {
     drawCheckerboard();
     drawPixels();
     drawGrid();
+    drawRulers();
 }
 
 function pushHistorySnapshot() {
@@ -489,6 +563,17 @@ function onCanvasDown(e) {
 }
 
 function onCanvasMove(e) {
+    if (state.showCoords) {
+        const p = pointToPixel(e.clientX, e.clientY);
+        if (p) {
+            el.coordTooltip.textContent = `${p.x}, ${p.y}`;
+            el.coordTooltip.style.display = 'block';
+            el.coordTooltip.style.left = `${e.clientX + 14}px`;
+            el.coordTooltip.style.top  = `${e.clientY + 8}px`;
+        } else {
+            el.coordTooltip.style.display = 'none';
+        }
+    }
     if (!state.isDrawing || state.tool === 'bucket') return;
     const p = pointToPixel(e.clientX, e.clientY);
     if (!p) return;
@@ -660,6 +745,11 @@ function bindEvents() {
         render();
     });
 
+    el.showCoords.addEventListener('change', () => {
+        state.showCoords = el.showCoords.checked;
+        if (!state.showCoords) el.coordTooltip.style.display = 'none';
+    });
+
     el.useTransparentPaint.addEventListener('change', () => {
         updateTransparentPaintUI();
         setStatus(state.useTransparentPaint
@@ -691,7 +781,10 @@ function bindEvents() {
     el.canvas.addEventListener('mousedown', onCanvasDown);
     el.canvas.addEventListener('mousemove', onCanvasMove);
     globalThis.addEventListener('mouseup', onCanvasUp);
-    el.canvas.addEventListener('mouseleave', onCanvasUp);
+    el.canvas.addEventListener('mouseleave', () => {
+        onCanvasUp();
+        el.coordTooltip.style.display = 'none';
+    });
 }
 
 function init() {
